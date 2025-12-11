@@ -1,0 +1,24 @@
+[Unit]
+Description=AWS Migration Business Case API (Gunicorn)
+After=network.target
+
+[Service]
+Type=notify
+User=www-data
+Group=www-data
+WorkingDirectory=/path/to/agentic-ai-business-case/ui/backend
+Environment="PATH=/path/to/agentic-ai-business-case/ui/backend/venv/bin"
+Environment="FLASK_ENV=production"
+Environment="FLASK_DEBUG=false"
+Environment="GUNICORN_WORKERS=4"
+Environment="GUNICORN_BIND=127.0.0.1:5000"
+ExecStart=/path/to/agentic-ai-business-case/ui/backend/venv/bin/gunicorn -c gunicorn.conf.py app:app
+ExecReload=/bin/kill -s HUP $MAINPID
+KillMode=mixed
+TimeoutStopSec=5
+PrivateTmp=true
+Restart=on-failure
+RestartSec=10s
+
+[Install]
+WantedBy=multi-user.target

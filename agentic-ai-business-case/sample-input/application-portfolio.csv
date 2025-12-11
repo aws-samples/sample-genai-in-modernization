@@ -1,0 +1,31 @@
+Application Name,Business Unit,Criticality,Environment,Technology Stack,Database,Users,Complexity,Dependencies,Current State,Technical Debt,Compliance Requirements,Recommended Strategy,Migration Wave,Notes
+Customer Portal,Sales,High,Production,Java Spring Boot,PostgreSQL,5000,Medium,Payment Gateway|CRM|Email Service,Stable,Low,PCI-DSS|GDPR,Replatform,Wave 1,Containerize and move to ECS
+ERP System,Finance,Critical,Production,Oracle EBS,Oracle DB,500,High,All Business Systems,Stable,High,SOX|GDPR,Rehost,Wave 1,Lift and shift initially due to complexity
+Marketing Website,Marketing,Medium,Production,WordPress|PHP,MySQL,10000,Low,CDN|Analytics,Stable,Medium,GDPR,Refactor,Wave 2,Modernize to serverless architecture
+Internal HR Portal,HR,Medium,Production,.NET Framework,SQL Server,200,Medium,Active Directory|Email,Stable,Medium,HIPAA,Replatform,Wave 2,Upgrade to .NET Core and containerize
+Legacy Reporting Tool,Finance,Low,Production,VB6|Access,Access DB,50,Low,None,End of Life,Very High,None,Retire,Wave 1,Replace with modern BI tool
+Data Warehouse,Analytics,High,Production,Teradata,Teradata,100,High,All Systems,Stable,Medium,None,Refactor,Wave 3,Migrate to Redshift
+Mobile App Backend,Sales,High,Production,Node.js,MongoDB,8000,Medium,Customer Portal|Notification Service,Stable,Low,PCI-DSS,Replatform,Wave 1,Move to ECS with managed MongoDB
+Email Marketing Platform,Marketing,Medium,Production,Python Django,PostgreSQL,1000,Medium,CRM|Analytics,Stable,Low,GDPR|CAN-SPAM,Repurchase,Wave 2,Replace with AWS SES and Pinpoint
+File Server,IT,Medium,Production,Windows Server,File System,500,Low,Active Directory,Stable,Low,None,Rehost,Wave 1,Migrate to FSx for Windows
+Backup System,IT,Low,Production,Proprietary,None,10,Low,All Systems,Stable,High,None,Repurchase,Wave 1,Replace with AWS Backup
+Development Tools,Engineering,Medium,Non-Production,Jenkins|GitLab,PostgreSQL,100,Medium,Source Control|Artifact Repository,Stable,Medium,None,Refactor,Wave 2,Migrate to AWS CodePipeline and CodeBuild
+Test Environment,QA,Low,Non-Production,Various,Various,50,Low,Development Tools,Stable,Low,None,Rehost,Wave 2,Lift and shift test infrastructure
+Monitoring System,IT,High,Production,Nagios|Grafana,InfluxDB,20,Medium,All Systems,Stable,Medium,None,Repurchase,Wave 1,Replace with CloudWatch and X-Ray
+CRM System,Sales,Critical,Production,Salesforce,Salesforce DB,1000,Low,Customer Portal|Email|Marketing,SaaS,None,GDPR|CCPA,Retain,N/A,Already cloud-based SaaS
+Document Management,Legal,High,Production,SharePoint,SQL Server,300,High,Active Directory|Email,Stable,High,SOX|Legal Hold,Replatform,Wave 3,Migrate to SharePoint Online or S3 with metadata
+Payment Gateway,Finance,Critical,Production,Java|Spring,Oracle DB,5000,High,Customer Portal|Mobile App|ERP,Stable,Low,PCI-DSS Level 1,Rehost,Wave 1,Highly regulated - lift and shift first
+Analytics Dashboard,Executive,Medium,Production,Tableau,Multiple Sources,50,Medium,Data Warehouse|ERP|CRM,Stable,Low,None,Retain,N/A,Keep current Tableau Cloud
+Inventory Management,Operations,High,Production,Custom Java,MySQL,200,High,ERP|Warehouse Systems,Stable,High,None,Refactor,Wave 3,Modernize architecture and integrate with ERP
+Warehouse Management,Operations,High,Production,SAP WMS,SAP HANA,150,High,Inventory|ERP|Shipping,Stable,Medium,None,Rehost,Wave 2,Lift and shift SAP workload
+Customer Support Portal,Support,High,Production,React|Node.js,PostgreSQL,2000,Medium,CRM|Knowledge Base|Ticketing,Stable,Low,GDPR,Replatform,Wave 2,Containerize and move to ECS
+Knowledge Base,Support,Medium,Production,Confluence,PostgreSQL,500,Low,Customer Support Portal,Stable,Low,None,Repurchase,Wave 2,Migrate to AWS managed wiki or keep Confluence Cloud
+Ticketing System,Support,High,Production,Zendesk,Zendesk DB,300,Low,Customer Support Portal|Email,SaaS,None,GDPR,Retain,N/A,Already cloud-based SaaS
+API Gateway,IT,Critical,Production,Kong,PostgreSQL,All Apps,High,All Applications,Stable,Medium,None,Refactor,Wave 1,Migrate to AWS API Gateway
+Identity Management,IT,Critical,Production,Active Directory,AD Database,All Users,High,All Applications,Stable,High,SOX|HIPAA|GDPR,Rehost,Wave 1,Migrate to AWS Managed AD initially
+VPN Server,IT,High,Production,Cisco ASA,None,500,Low,All Systems,Stable,Medium,None,Repurchase,Wave 1,Replace with AWS Client VPN
+Print Server,IT,Low,Production,Windows Server,None,200,Low,Active Directory,Stable,High,None,Retire,Wave 1,Move to cloud printing solution
+Fax Server,IT,Low,Production,Windows Server,None,20,Low,None,End of Life,Very High,HIPAA,Retire,Wave 1,Replace with cloud fax service
+Training Portal,HR,Medium,Production,Moodle,MySQL,500,Medium,Active Directory|HR Portal,Stable,Medium,None,Replatform,Wave 3,Containerize or use managed LMS
+Expense Management,Finance,Medium,Production,Concur,Concur DB,800,Low,ERP|Credit Card Systems,SaaS,None,SOX,Retain,N/A,Already cloud-based SaaS
+Time Tracking,HR,Medium,Production,Custom .NET,SQL Server,1000,Medium,HR Portal|Payroll,Stable,High,None,Refactor,Wave 3,Modernize to cloud-native architecture

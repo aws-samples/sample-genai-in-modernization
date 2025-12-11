@@ -1,0 +1,96 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+*.egg-info/
+dist/
+build/
+
+# Virtual environments
+venv/
+env/
+ENV/
+path/to/venv/
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Log files
+*.log
+output/logs/
+logs/
+
+# Generated output files
+output/*.md
+output/*.pdf
+output/*.xlsx
+output/*.docx
+
+# Project info (contains user data)
+input/project_info.json
+
+# Uploaded user files (base directory)
+input/*.xlsx
+input/*.xls
+input/*.csv
+input/*.pdf
+input/*.pptx
+input/*.ppt
+input/*.docx
+input/*.doc
+
+# Case-specific subdirectories (all files in subfolders)
+input/case-*/
+
+# Keep example/template files
+!input/application-portfolio.csv
+!input/aws-*.md
+!input/inventory_data_raw.csv
+
+# Node modules (UI)
+ui/node_modules/
+ui/build/
+ui/dist/
+ui/.env.local
+ui/.env.development.local
+ui/.env.test.local
+ui/.env.production.local
+
+# Backend
+ui/backend/venv/
+ui/backend/__pycache__/
+ui/backend/*.pyc
+
+# Temporary files
+*.tmp
+*.temp
+.cache/
+
+# Process ID files and logs
+.pids/
+
+# Internal documentation
+docs/
+
+# v1.0 Release - Additional ignores
+*.pyc
+__pycache__/
+.DS_Store
+*.log
+output/logs/
+output/*.md
+output/*.xlsx
+input/case-*/
+.kiro/
+.pids/
+docs/archive/

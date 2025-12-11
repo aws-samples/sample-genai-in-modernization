@@ -1,0 +1,124 @@
+.app {
+  min-height: 100vh;
+  background-color: #f2f3f3;
+}
+
+#business-case-content {
+  background: white;
+  padding: 40px;
+  border-radius: 8px;
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.1);
+}
+
+#business-case-content h1 {
+  color: #232f3e;
+  font-size: 28px;
+  margin-bottom: 20px;
+  border-bottom: 2px solid #ff9900;
+  padding-bottom: 10px;
+}
+
+#business-case-content h2 {
+  color: #232f3e;
+  font-size: 24px;
+  margin-top: 30px;
+  margin-bottom: 15px;
+}
+
+#business-case-content h3 {
+  color: #545b64;
+  font-size: 20px;
+  margin-top: 20px;
+  margin-bottom: 10px;
+}
+
+#business-case-content p {
+  color: #545b64;
+  line-height: 1.6;
+  margin-bottom: 15px;
+}
+
+#business-case-content ul,
+#business-case-content ol {
+  color: #545b64;
+  line-height: 1.6;
+  margin-bottom: 15px;
+  padding-left: 30px;
+}
+
+#business-case-content table {
+  width: 100%;
+  border-collapse: collapse;
+  margin: 20px 0;
+}
+
+#business-case-content table th {
+  background-color: #232f3e;
+  color: white;
+  padding: 12px;
+  text-align: left;
+  font-weight: 600;
+}
+
+#business-case-content table td {
+  padding: 10px 12px;
+  border-bottom: 1px solid #e9ebed;
+}
+
+#business-case-content table tr:hover {
+  background-color: #f9f9f9;
+}
+
+#business-case-content code {
+  background-color: #f4f4f4;
+  padding: 2px 6px;
+  border-radius: 3px;
+  font-family: 'Courier New', monospace;
+  font-size: 14px;
+}
+
+#business-case-content pre {
+  background-color: #f4f4f4;
+  padding: 15px;
+  border-radius: 5px;
+  overflow-x: auto;
+  margin: 15px 0;
+}
+
+#business-case-content blockquote {
+  border-left: 4px solid #ff9900;
+  padding-left: 20px;
+  margin: 20px 0;
+  color: #545b64;
+  font-style: italic;
+}
+
+#business-case-content strong {
+  color: #232f3e;
+  font-weight: 600;
+}
+
+#business-case-content a {
+  color: #0073bb;
+  text-decoration: none;
+}
+
+#business-case-content a:hover {
+  text-decoration: underline;
+}
+
+
+/* Hide wizard navigation buttons on Results page */
+.hide-wizard-actions .awsui-wizard-actions {
+  display: none !important;
+}
+
+/* Alternative selector if the above doesn't work */
+.hide-wizard-actions [class*="wizard-actions"] {
+  display: none !important;
+}
+
+/* Hide the entire footer on Results page */
+.hide-wizard-actions footer {
+  display: none !important;
+}

@@ -397,7 +397,6 @@ python3 -m pip install --upgrade boto3 botocore
 
 **6. Deprecated services in output**
 - Should not happen - agents check against lifecycle page
-- If found, update `agents/reference/aws_deprecated_services.md`
 - Report issue for prompt strengthening
 
 **7.
@@ -415,8 +414,7 @@ python3 -m pip install --upgrade boto3 botocore
 - `ui/S3_STORAGE_SETUP.md` - Manual S3 storage setup instructions
 
 ### Agent Configuration
-- `agents/reference/aws_deprecated_services.md` - List of deprecated services to avoid
-- `agents/reference/DEPRECATED_SERVICES_IMPLEMENTATION.md` - Implementation details
+Implementation details
 - `agents/appendix_content.py` - AWS Partner Programs appendix content
 
 ### UI Documentation

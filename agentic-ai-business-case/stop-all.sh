@@ -2,37 +2,49 @@
 
 echo "Stopping AWS Migration Business Case Generator..."
 
-# Stop backend using PID file
-if [ -f .backend.pid ]; then
-    BACKEND_PID=$(cat .backend.pid)
-    if kill -0 $BACKEND_PID 2>/dev/null; then
+# Kill backend (Gunicorn)
+if [ -f .pids/backend.pid ]; then
+    BACKEND_PID=$(cat .pids/backend.pid)
+    if ps -p $BACKEND_PID > /dev/null 2>&1; then
+        echo "Stopping Gunicorn master process (PID: $BACKEND_PID)..."
         kill $BACKEND_PID
-        echo "✓ Backend stopped (PID: $BACKEND_PID)"
-    else
-        echo "⚠ Backend process not running"
+        sleep 2
     fi
-    rm .backend.pid
-else
-    # Fallback to pkill
-    pkill -f "gunicorn.*app:app"
-    echo "✓ Backend stopped (using pkill)"
+    rm -f .pids/backend.pid
 fi
 
-# Stop frontend using PID file
-if [ -f .frontend.pid ]; then
-    FRONTEND_PID=$(cat .frontend.pid)
-    if kill -0 $FRONTEND_PID 2>/dev/null; then
-        kill $FRONTEND_PID
-        echo "✓ Frontend stopped (PID: $FRONTEND_PID)"
-    else
-        echo "⚠ Frontend process not running"
+# Kill any remaining Gunicorn processes (workers that didn't stop)
+GUNICORN_PIDS=$(pgrep -f "gunicorn.*app:app")
+if [ ! -z "$GUNICORN_PIDS" ]; then
+    echo "Stopping remaining Gunicorn workers..."
+    pkill -f "gunicorn.*app:app"
+    sleep 1
+    
+    # Force kill if still running
+    GUNICORN_PIDS=$(pgrep -f "gunicorn.*app:app")
+    if [ ! -z "$GUNICORN_PIDS" ]; then
+        echo "Force killing stubborn Gunicorn processes..."
+        pkill -9 -f "gunicorn.*app:app"
     fi
-    rm .frontend.pid
-else
-    # Fallback to pkill
-    pkill -f "npm start"
-    pkill -f "react-scripts start"
-    echo "✓ Frontend stopped (using pkill)"
 fi
+
+echo "✓ Backend stopped"
+
+# Kill frontend
+if [ -f .pids/frontend.pid ]; then
+    FRONTEND_PID=$(cat .pids/frontend.pid)
+    if ps -p $FRONTEND_PID > /dev/null 2>&1; then
+        echo "Stopping frontend (PID: $FRONTEND_PID)..."
+        kill $FRONTEND_PID
+        sleep 1
+    fi
+    rm -f .pids/frontend.pid
+fi
+
+# Kill any remaining npm/node processes
+pkill -f "npm start"
+pkill -f "react-scripts start"
+
+echo "✓ Frontend stopped"
 
 echo "All services stopped."

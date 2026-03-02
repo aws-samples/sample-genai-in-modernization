@@ -17,7 +17,7 @@ dill==0.4.0
 docstring_parser==0.17.0
 et_xmlfile==2.0.0
 Flask==3.1.0
-Flask-Cors==5.0.0
+Flask-Cors==6.0.0
 frozenlist==1.8.0
 gunicorn==23.0.0
 h11==0.16.0

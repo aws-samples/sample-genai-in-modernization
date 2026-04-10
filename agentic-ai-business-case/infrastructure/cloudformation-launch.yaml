@@ -724,14 +724,27 @@ Resources:
                       send_response(event, context, 'SUCCESS', response_data, physical_id)
                       return
 
-                  # Generate self-signed cert using openssl
+                  # Generate self-signed cert using openssl with valid FQDN
                   key_file = '/tmp/key.pem'
                   cert_file = '/tmp/cert.pem'
+                  san_conf = '/tmp/san.cnf'
+                  
+                  # Write OpenSSL config with SAN extension
+                  with open(san_conf, 'w') as f:
+                      f.write('[req]\n')
+                      f.write('distinguished_name = req_distinguished_name\n')
+                      f.write('x509_extensions = v3_req\n')
+                      f.write('prompt = no\n')
+                      f.write('[req_distinguished_name]\n')
+                      f.write('CN = self-signed.business-case.local\n')
+                      f.write('[v3_req]\n')
+                      f.write('subjectAltName = DNS:self-signed.business-case.local\n')
+                  
                   subprocess.run([
                       'openssl', 'req', '-x509', '-newkey', 'rsa:2048',
                       '-keyout', key_file, '-out', cert_file,
                       '-days', '365', '-nodes',
-                      '-subj', '/CN=business-case-alb-self-signed'
+                      '-config', san_conf
                   ], check=True, capture_output=True)
 
                   with open(cert_file, 'r') as f:

@@ -360,9 +360,9 @@ Resources:
       SupportedIdentityProviders:
         - COGNITO
       CallbackURLs:
-        - !Sub http://${ALB.DNSName}/auth/callback
+        - !Sub https://${ALB.DNSName}/auth/callback
       LogoutURLs:
-        - !Sub http://${ALB.DNSName}
+        - !Sub https://${ALB.DNSName}
 
   # Create initial admin user
   CognitoAdminUser:
@@ -471,6 +471,10 @@ Resources:
         - IpProtocol: tcp
           FromPort: 80
           ToPort: 80
+          CidrIp: 0.0.0.0/0
+        - IpProtocol: tcp
+          FromPort: 443
+          ToPort: 443
           CidrIp: 0.0.0.0/0
 
   ECSSecurityGroup:
@@ -614,7 +618,7 @@ Resources:
             - Name: COGNITO_DOMAIN
               Value: !Sub ${CognitoDomainPrefix}.auth.${AWS::Region}.amazoncognito.com
             - Name: APP_URL
-              Value: !Sub http://${ALB.DNSName}
+              Value: !Sub https://${ALB.DNSName}
           LogConfiguration:
             LogDriver: awslogs
             Options:
@@ -664,6 +668,125 @@ Resources:
         - Key: deregistration_delay.timeout_seconds
           Value: '30'
 
+  # ==========================================================================
+  # Self-Signed Certificate for HTTPS (required by Cognito callback URLs)
+  # ==========================================================================
+  SelfSignedCertRole:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: lambda.amazonaws.com
+            Action: sts:AssumeRole
+      ManagedPolicyArns:
+        - arn:aws:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole
+      Policies:
+        - PolicyName: ACMImportPolicy
+          PolicyDocument:
+            Version: '2012-10-17'
+            Statement:
+              - Effect: Allow
+                Action:
+                  - acm:ImportCertificate
+                  - acm:DeleteCertificate
+                Resource: '*'
+
+  SelfSignedCertLambda:
+    Type: AWS::Lambda::Function
+    Properties:
+      FunctionName: !Sub ${AWS::StackName}-self-signed-cert
+      Runtime: python3.12
+      Handler: index.handler
+      Timeout: 60
+      MemorySize: 128
+      Role: !GetAtt SelfSignedCertRole.Arn
+      Code:
+        ZipFile: |
+          import json
+          import boto3
+          import subprocess
+          import os
+          import urllib.request
+
+          def handler(event, context):
+              response_data = {}
+              physical_id = event.get('PhysicalResourceId', 'SelfSignedCert')
+              try:
+                  if event.get('RequestType') == 'Delete':
+                      if physical_id and physical_id.startswith('arn:aws:acm:'):
+                          try:
+                              boto3.client('acm').delete_certificate(CertificateArn=physical_id)
+                          except Exception:
+                              pass
+                      send_response(event, context, 'SUCCESS', response_data, physical_id)
+                      return
+
+                  # Generate self-signed cert using openssl
+                  key_file = '/tmp/key.pem'
+                  cert_file = '/tmp/cert.pem'
+                  subprocess.run([
+                      'openssl', 'req', '-x509', '-newkey', 'rsa:2048',
+                      '-keyout', key_file, '-out', cert_file,
+                      '-days', '365', '-nodes',
+                      '-subj', '/CN=business-case-alb-self-signed'
+                  ], check=True, capture_output=True)
+
+                  with open(cert_file, 'r') as f:
+                      cert_body = f.read()
+                  with open(key_file, 'r') as f:
+                      private_key = f.read()
+
+                  acm = boto3.client('acm')
+                  resp = acm.import_certificate(
+                      Certificate=cert_body.encode(),
+                      PrivateKey=private_key.encode()
+                  )
+                  cert_arn = resp['CertificateArn']
+                  response_data['CertificateArn'] = cert_arn
+                  send_response(event, context, 'SUCCESS', response_data, cert_arn)
+              except Exception as e:
+                  print(f"Error: {e}")
+                  send_response(event, context, 'FAILED', response_data, physical_id, str(e))
+
+          def send_response(event, context, status, data, physical_id, reason=''):
+              body = json.dumps({
+                  'Status': status,
+                  'Reason': reason or f"See CloudWatch: {context.log_stream_name}",
+                  'PhysicalResourceId': physical_id,
+                  'StackId': event['StackId'],
+                  'RequestId': event['RequestId'],
+                  'LogicalResourceId': event['LogicalResourceId'],
+                  'Data': data
+              })
+              req = urllib.request.Request(
+                  event['ResponseURL'], data=body.encode('utf-8'),
+                  headers={'Content-Type': 'application/json'}, method='PUT'
+              )
+              urllib.request.urlopen(req)
+
+  SelfSignedCert:
+    Type: Custom::SelfSignedCert
+    Properties:
+      ServiceToken: !GetAtt SelfSignedCertLambda.Arn
+
+  # ==========================================================================
+  # ALB Listeners - HTTPS with self-signed cert, HTTP redirects to HTTPS
+  # ==========================================================================
+  HTTPSListener:
+    Type: AWS::ElasticLoadBalancingV2::Listener
+    Properties:
+      LoadBalancerArn: !Ref ALB
+      Port: 443
+      Protocol: HTTPS
+      Certificates:
+        - CertificateArn: !GetAtt SelfSignedCert.CertificateArn
+      DefaultActions:
+        - Type: forward
+          TargetGroupArn: !Ref TargetGroup
+
   HTTPListener:
     Type: AWS::ElasticLoadBalancingV2::Listener
     Properties:
@@ -671,12 +794,16 @@ Resources:
       Port: 80
       Protocol: HTTP
       DefaultActions:
-        - Type: forward
-          TargetGroupArn: !Ref TargetGroup
+        - Type: redirect
+          RedirectConfig:
+            Protocol: HTTPS
+            Port: '443'
+            StatusCode: HTTP_301
 
   ECSService:
     Type: AWS::ECS::Service
     DependsOn:
+      - HTTPSListener
       - HTTPListener
       - BuildTrigger
     Properties:
@@ -894,14 +1021,14 @@ Resources:
 Outputs:
   ApplicationURL:
     Description: Application URL (wait 2-3 min after stack creation for ECS to start)
-    Value: !Sub http://${ALB.DNSName}
+    Value: !Sub https://${ALB.DNSName}
   LoadBalancerDNS:
     Description: ALB DNS Name
     Value: !GetAtt ALB.DNSName
   CognitoLoginURL:
     Description: Cognito Hosted UI login page
     Value: !Sub >-
-      https://${CognitoDomainPrefix}.auth.${AWS::Region}.amazoncognito.com/login?client_id=${CognitoUserPoolClient}&response_type=code&scope=openid+email+profile&redirect_uri=http://${ALB.DNSName}/auth/callback
+      https://${CognitoDomainPrefix}.auth.${AWS::Region}.amazoncognito.com/login?client_id=${CognitoUserPoolClient}&response_type=code&scope=openid+email+profile&redirect_uri=https://${ALB.DNSName}/auth/callback
   CognitoUserPoolId:
     Description: Cognito User Pool ID (for adding users)
     Value: !Ref CognitoUserPool

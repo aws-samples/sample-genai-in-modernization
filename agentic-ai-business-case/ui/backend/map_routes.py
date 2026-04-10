@@ -6,6 +6,7 @@ resource planning, learning pathways, business case validation, and architecture
 from flask import Blueprint, request, jsonify
 import os
 import sys
+import logging
 import tempfile
 import pandas as pd
 import json
@@ -88,7 +89,8 @@ def analyze_inventory():
             inventory_df = pd.read_csv(file)
             csv_text = inventory_df.to_string()
         except Exception as e:
-            return jsonify({'success': False, 'message': f'Error reading CSV: {str(e)}'}), 400
+            logging.error(f"Error reading CSV: {e}")
+            return jsonify({'success': False, 'message': 'Error reading CSV file'}), 400
         
         # Check for custom prompt
         custom_prompt = request.form.get('custom_prompt')
@@ -115,7 +117,8 @@ def analyze_inventory():
         })
         
     except Exception as e:
-        return jsonify({'success': False, 'message': str(e)}), 500
+        logging.error(f"Inventory analysis failed: {e}")
+        return jsonify({'success': False, 'message': 'An internal error occurred'}), 500
 
 @map_bp.route('/modernization/analyze-architecture', methods=['POST'])
 def analyze_architecture():
@@ -151,7 +154,8 @@ def analyze_architecture():
         })
         
     except Exception as e:
-        return jsonify({'success': False, 'message': str(e)}), 500
+        logging.error(f"Architecture analysis failed: {e}")
+        return jsonify({'success': False, 'message': 'An internal error occurred'}), 500
 
 @map_bp.route('/modernization/recommend-pathways', methods=['POST'])
 def recommend_pathways():
@@ -180,7 +184,8 @@ def recommend_pathways():
         })
         
     except Exception as e:
-        return jsonify({'success': False, 'message': str(e)}), 500
+        logging.error(f"Modernization pathways failed: {e}")
+        return jsonify({'success': False, 'message': 'An internal error occurred'}), 500
 
 # ============================================================================
 # MIGRATION STRATEGY ENDPOINTS
@@ -276,7 +281,8 @@ def generate_migration_strategy():
         })
         
     except Exception as e:
-        return jsonify({'success': False, 'message': str(e)}), 500
+        logging.error(f"Migration strategy generation failed: {e}")
+        return jsonify({'success': False, 'message': 'An internal error occurred'}), 500
 
 # ============================================================================
 # RESOURCE PLANNING ENDPOINTS
@@ -332,7 +338,8 @@ def generate_resource_planning():
         })
         
     except Exception as e:
-        return jsonify({'success': False, 'message': str(e)}), 500
+        logging.error(f"Resource planning failed: {e}")
+        return jsonify({'success': False, 'message': 'An internal error occurred'}), 500
 
 # ============================================================================
 # LEARNING PATHWAY ENDPOINTS
@@ -390,7 +397,8 @@ def generate_learning_pathway():
         })
         
     except Exception as e:
-        return jsonify({'success': False, 'message': str(e)}), 500
+        logging.error(f"Learning pathway generation failed: {e}")
+        return jsonify({'success': False, 'message': 'An internal error occurred'}), 500
 
 # ============================================================================
 # BUSINESS CASE VALIDATION ENDPOINTS
@@ -443,7 +451,8 @@ def validate_business_case():
         })
         
     except Exception as e:
-        return jsonify({'success': False, 'message': str(e)}), 500
+        logging.error(f"Business case validation failed: {e}")
+        return jsonify({'success': False, 'message': 'An internal error occurred'}), 500
 
 # ============================================================================
 # ARCHITECTURE DIAGRAM ENDPOINTS
@@ -481,7 +490,8 @@ def generate_architecture_diagram():
         })
         
     except Exception as e:
-        return jsonify({'success': False, 'message': str(e)}), 500
+        logging.error(f"Architecture diagram generation failed: {e}")
+        return jsonify({'success': False, 'message': 'An internal error occurred'}), 500
 
 # ============================================================================
 # CHAT ASSISTANT ENDPOINTS
@@ -550,7 +560,8 @@ def chat_message():
         })
         
     except Exception as e:
-        return jsonify({'success': False, 'message': str(e)}), 500
+        logging.error(f"Chat message processing failed: {e}")
+        return jsonify({'success': False, 'message': 'An internal error occurred'}), 500
 
 # ============================================================================
 # SERVICE ANALYSIS ENDPOINTS
@@ -631,7 +642,8 @@ def analyze_service_completeness():
         })
         
     except Exception as e:
-        return jsonify({'success': False, 'message': str(e)}), 500
+        logging.error(f"Service analysis failed: {e}")
+        return jsonify({'success': False, 'message': 'An internal error occurred'}), 500
 
 
 # ============================================================================

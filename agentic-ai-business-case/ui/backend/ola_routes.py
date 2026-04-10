@@ -5,6 +5,7 @@ from flask import Blueprint, request, jsonify
 import pandas as pd
 import sys
 import os
+import logging
 import tempfile
 from werkzeug.utils import secure_filename
 
@@ -58,8 +59,15 @@ def analyze_ola():
         region = request.form.get('region', 'us-east-1')
         
         # Save files temporarily with correct extensions
-        rv_ext = os.path.splitext(rvtools_file.filename)[1]
-        db_ext = os.path.splitext(db_file.filename)[1]
+        rv_ext = os.path.splitext(secure_filename(rvtools_file.filename))[1]
+        db_ext = os.path.splitext(secure_filename(db_file.filename))[1]
+        
+        # Validate extensions are in allowed set
+        allowed_exts = {'.csv', '.xlsx', '.xls'}
+        if rv_ext.lower() not in allowed_exts:
+            rv_ext = '.csv'
+        if db_ext.lower() not in allowed_exts:
+            db_ext = '.csv'
         
         with tempfile.NamedTemporaryFile(delete=False, suffix=rv_ext) as rv_temp:
             rvtools_file.save(rv_temp.name)
@@ -182,9 +190,10 @@ def analyze_ola():
             os.unlink(db_path)
     
     except Exception as e:
+        logging.error(f"OLA analysis failed: {e}")
         return jsonify({
             'success': False,
-            'message': str(e)
+            'message': 'An internal error occurred during OLA analysis'
         }), 500
 
 

@@ -6,6 +6,8 @@ from flask_cors import CORS
 import os
 import sys
 import json
+import logging
+import re
 from werkzeug.utils import secure_filename
 import tempfile
 import shutil
@@ -14,6 +16,24 @@ import boto3
 from botocore.exceptions import ClientError
 
 app = Flask(__name__)
+
+
+def safe_path(base_dir, filename):
+    """Sanitize filename and ensure path stays within base_dir to prevent path traversal."""
+    clean_name = os.path.basename(filename)
+    if not clean_name:
+        raise ValueError("Invalid filename")
+    full_path = os.path.realpath(os.path.join(base_dir, clean_name))
+    if not full_path.startswith(os.path.realpath(base_dir)):
+        raise ValueError("Path traversal detected")
+    return full_path
+
+
+def safe_case_id(case_id):
+    """Sanitize case_id to prevent path traversal. Only allow alphanumeric, hyphens, and underscores."""
+    if not case_id or not re.match(r'^[a-zA-Z0-9_-]+$', case_id):
+        raise ValueError("Invalid case ID")
+    return case_id
 
 # Environment detection
 FLASK_ENV = os.environ.get('FLASK_ENV', 'development')
@@ -303,9 +323,11 @@ def generate_business_case():
         # Generate case ID if not provided
         if not case_id:
             case_id = f"case-{datetime.utcnow().strftime('%Y%m%d-%H%M%S')}"
+        else:
+            case_id = safe_case_id(case_id)
         
         # Create case-specific input directory
-        case_input_dir = os.path.join(INPUT_DIR, case_id)
+        case_input_dir = safe_path(INPUT_DIR, case_id)
         os.makedirs(case_input_dir, exist_ok=True)
         print(f"Created case-specific input directory: {case_input_dir}")
         
@@ -325,7 +347,7 @@ def generate_business_case():
                 file = request.files[key]
                 if file and allowed_file(file.filename):
                     # Save to case-specific input directory ONLY
-                    filepath = os.path.join(case_input_dir, target_filename)
+                    filepath = safe_path(case_input_dir, target_filename)
                     file.save(filepath)
                     uploaded_files[key] = filepath
                     print(f"✓ Saved {key} to case directory: {filepath}")
@@ -348,7 +370,7 @@ def generate_business_case():
                 target_filename = f'mra-assessment.{file_ext}'
                 
                 # Save to case-specific directory ONLY
-                filepath = os.path.join(case_input_dir, target_filename)
+                filepath = safe_path(case_input_dir, target_filename)
                 file.save(filepath)
                 uploaded_files['mra'] = filepath
                 print(f"✓ Saved MRA to case directory: {filepath}")
@@ -373,7 +395,7 @@ def generate_business_case():
                     safe_filename = secure_filename(file.filename)
                     
                     # Save to case-specific directory ONLY
-                    filepath = os.path.join(case_input_dir, safe_filename)
+                    filepath = safe_path(case_input_dir, safe_filename)
                     file.save(filepath)
                     rv_file_paths.append(filepath)
                     print(f"✓ Saved RVTools file to case directory: {filepath}")
@@ -403,7 +425,7 @@ def generate_business_case():
         }
         
         # Save to case-specific directory ONLY
-        case_project_info_file = os.path.join(case_input_dir, 'project_info.json')
+        case_project_info_file = safe_path(case_input_dir, 'project_info.json')
         with open(case_project_info_file, 'w', encoding='utf-8') as f:
             json.dump(project_info_with_files, f, indent=2)
         print(f"✓ Saved project info to case directory: {case_project_info_file}")
@@ -420,8 +442,8 @@ def generate_business_case():
         
         # Read the generated business case
         # First check case-specific output folder, then fall back to root
-        case_output_dir = os.path.join(OUTPUT_DIR, case_id)
-        output_file = os.path.join(case_output_dir, 'aws_business_case.md')
+        case_output_dir = safe_path(OUTPUT_DIR, case_id)
+        output_file = safe_path(case_output_dir, 'aws_business_case.md')
         
         if not os.path.exists(output_file):
             # Fallback to root output folder
@@ -443,9 +465,9 @@ def generate_business_case():
             # Upload all Excel files to S3 if they exist and S3 is enabled
             if is_s3_enabled():
                 # Check for RVTools Excel file (check case folder first)
-                excel_file = os.path.join(case_output_dir, 'vm_to_ec2_mapping.xlsx')
+                excel_file = safe_path(case_output_dir, 'vm_to_ec2_mapping.xlsx')
                 if not os.path.exists(excel_file):
-                    excel_file = os.path.join(OUTPUT_DIR, 'vm_to_ec2_mapping.xlsx')
+                    excel_file = safe_path(OUTPUT_DIR, 'vm_to_ec2_mapping.xlsx')
                 
                 if os.path.exists(excel_file):
                     s3_key = upload_file_to_s3(excel_file, case_id, 'vm_to_ec2_mapping.xlsx')
@@ -454,9 +476,9 @@ def generate_business_case():
                         print(f"✓ Excel mapping uploaded to S3: {s3_key}")
                 
                 # Check for EKS Excel file (check case folder first)
-                eks_excel_file = os.path.join(case_output_dir, 'eks_migration_analysis.xlsx')
+                eks_excel_file = safe_path(case_output_dir, 'eks_migration_analysis.xlsx')
                 if not os.path.exists(eks_excel_file):
-                    eks_excel_file = os.path.join(OUTPUT_DIR, 'eks_migration_analysis.xlsx')
+                    eks_excel_file = safe_path(OUTPUT_DIR, 'eks_migration_analysis.xlsx')
                 
                 if os.path.exists(eks_excel_file):
                     s3_key = upload_file_to_s3(eks_excel_file, case_id, 'eks_migration_analysis.xlsx')
@@ -533,10 +555,10 @@ def generate_business_case():
             }), 500
             
     except Exception as e:
-        print(f"Error: {str(e)}")
+        logging.error(f"Business case generation failed: {e}")
         return jsonify({
             'success': False,
-            'message': str(e)
+            'message': 'An internal error occurred during business case generation'
         }), 500
 
 def run_business_case_generator(project_info, selected_agents):
@@ -694,14 +716,16 @@ def save_to_dynamodb():
         })
         
     except ClientError as e:
+        logging.error(f"DynamoDB save error: {e}")
         return jsonify({
             'success': False,
-            'message': f'DynamoDB error: {str(e)}'
+            'message': 'A database error occurred'
         }), 500
     except Exception as e:
+        logging.error(f"Save to DynamoDB failed: {e}")
         return jsonify({
             'success': False,
-            'message': str(e)
+            'message': 'An internal error occurred'
         }), 500
 
 @app.route('/api/dynamodb/list', methods=['GET'])
@@ -740,14 +764,16 @@ def list_business_cases():
         })
         
     except ClientError as e:
+        logging.error(f"DynamoDB list error: {e}")
         return jsonify({
             'success': False,
-            'message': f'DynamoDB error: {str(e)}'
+            'message': 'A database error occurred'
         }), 500
     except Exception as e:
+        logging.error(f"List business cases failed: {e}")
         return jsonify({
             'success': False,
-            'message': str(e)
+            'message': 'An internal error occurred'
         }), 500
 
 @app.route('/api/dynamodb/load/<case_id>', methods=['GET'])
@@ -758,6 +784,12 @@ def load_business_case(case_id):
             'success': False,
             'message': 'DynamoDB is not enabled or configured'
         }), 503
+    
+    # Sanitize case_id
+    try:
+        case_id = safe_case_id(case_id)
+    except ValueError:
+        return jsonify({'success': False, 'message': 'Invalid case ID'}), 400
     
     # Get current user
     user = get_user_from_oidc()
@@ -799,7 +831,7 @@ def load_business_case(case_id):
         files_restored = {}
         if is_s3_enabled() and 's3FileKeys' in case_data:
             # Create case-specific input directory for restored files
-            case_input_dir = os.path.join(INPUT_DIR, case_id)
+            case_input_dir = safe_path(INPUT_DIR, case_id)
             os.makedirs(case_input_dir, exist_ok=True)
             print(f"Restoring files to case-specific directory: {case_input_dir}")
             
@@ -816,7 +848,7 @@ def load_business_case(case_id):
                         rv_restored = []
                         for s3_key in value:
                             filename = os.path.basename(s3_key)
-                            local_path = os.path.join(case_input_dir, filename)
+                            local_path = safe_path(case_input_dir, filename)
                             if download_file_from_s3(s3_key, local_path):
                                 print(f"✓ Restored RVTools file: {filename}")
                                 rv_restored.append(True)
@@ -827,7 +859,7 @@ def load_business_case(case_id):
                     else:
                         # Single RVTools file (backward compatibility)
                         filename = os.path.basename(value)
-                        local_path = os.path.join(case_input_dir, filename)
+                        local_path = safe_path(case_input_dir, filename)
                         if download_file_from_s3(value, local_path):
                             print(f"✓ Restored RVTools file: {filename}")
                             files_restored[key] = True
@@ -837,7 +869,7 @@ def load_business_case(case_id):
                 elif key == 'mra':
                     # Handle MRA file - preserve original filename from S3
                     filename = os.path.basename(value)
-                    local_path = os.path.join(case_input_dir, filename)
+                    local_path = safe_path(case_input_dir, filename)
                     if download_file_from_s3(value, local_path):
                         print(f"✓ Restored MRA file: {filename}")
                         files_restored[key] = True
@@ -846,7 +878,7 @@ def load_business_case(case_id):
                         files_restored[key] = False
                 elif key in file_mapping:
                     filename = file_mapping[key]
-                    local_path = os.path.join(case_input_dir, filename)
+                    local_path = safe_path(case_input_dir, filename)
                     if download_file_from_s3(value, local_path):
                         print(f"✓ Restored {key} file: {filename}")
                         files_restored[key] = True
@@ -858,7 +890,7 @@ def load_business_case(case_id):
         output_files_restored = {}
         if is_s3_enabled() and 'outputS3Keys' in case_data:
             # Create case-specific output directory for restored files
-            case_output_dir = os.path.join(OUTPUT_DIR, case_id)
+            case_output_dir = safe_path(OUTPUT_DIR, case_id)
             os.makedirs(case_output_dir, exist_ok=True)
             print(f"Restoring output files to case-specific directory: {case_output_dir}")
             
@@ -867,7 +899,7 @@ def load_business_case(case_id):
             # Restore business case
             if 'business_case' in output_s3_keys:
                 s3_key = output_s3_keys['business_case']
-                local_path = os.path.join(case_output_dir, 'aws_business_case.md')
+                local_path = safe_path(case_output_dir, 'aws_business_case.md')
                 if download_file_from_s3(s3_key, local_path):
                     output_files_restored['business_case'] = True
                     print(f"✓ Restored business case from S3: {s3_key}")
@@ -877,7 +909,7 @@ def load_business_case(case_id):
             # Restore Excel mapping
             if 'excel_mapping' in output_s3_keys:
                 s3_key = output_s3_keys['excel_mapping']
-                local_path = os.path.join(case_output_dir, 'vm_to_ec2_mapping.xlsx')
+                local_path = safe_path(case_output_dir, 'vm_to_ec2_mapping.xlsx')
                 if download_file_from_s3(s3_key, local_path):
                     output_files_restored['excel_mapping'] = True
                     print(f"✓ Restored Excel mapping from S3: {s3_key}")
@@ -887,7 +919,7 @@ def load_business_case(case_id):
             # Restore EKS analysis if available
             if 'eks_analysis' in output_s3_keys:
                 s3_key = output_s3_keys['eks_analysis']
-                local_path = os.path.join(case_output_dir, 'eks_migration_analysis.xlsx')
+                local_path = safe_path(case_output_dir, 'eks_migration_analysis.xlsx')
                 if download_file_from_s3(s3_key, local_path):
                     output_files_restored['eks_analysis'] = True
                     print(f"✓ Restored EKS analysis from S3: {s3_key}")
@@ -897,7 +929,7 @@ def load_business_case(case_id):
             # Restore IT Inventory analysis if available
             if 'it_inventory' in output_s3_keys:
                 s3_key = output_s3_keys['it_inventory']
-                local_path = os.path.join(case_output_dir, 'it_inventory_ec2_cost_analysis.xlsx')
+                local_path = safe_path(case_output_dir, 'it_inventory_ec2_cost_analysis.xlsx')
                 if download_file_from_s3(s3_key, local_path):
                     output_files_restored['it_inventory'] = True
                     print(f"✓ Restored IT Inventory analysis from S3: {s3_key}")
@@ -913,14 +945,16 @@ def load_business_case(case_id):
         })
         
     except ClientError as e:
+        logging.error(f"DynamoDB load error: {e}")
         return jsonify({
             'success': False,
-            'message': f'DynamoDB error: {str(e)}'
+            'message': 'A database error occurred'
         }), 500
     except Exception as e:
+        logging.error(f"Load business case failed: {e}")
         return jsonify({
             'success': False,
-            'message': str(e)
+            'message': 'An internal error occurred'
         }), 500
 
 @app.route('/api/dynamodb/delete/<case_id>', methods=['DELETE'])
@@ -931,6 +965,12 @@ def delete_business_case(case_id):
             'success': False,
             'message': 'DynamoDB is not enabled or configured'
         }), 503
+    
+    # Sanitize case_id
+    try:
+        case_id = safe_case_id(case_id)
+    except ValueError:
+        return jsonify({'success': False, 'message': 'Invalid case ID'}), 400
     
     # Get current user
     user = get_user_from_oidc()
@@ -973,14 +1013,16 @@ def delete_business_case(case_id):
         })
         
     except ClientError as e:
+        logging.error(f"DynamoDB delete error: {e}")
         return jsonify({
             'success': False,
-            'message': f'DynamoDB error: {str(e)}'
+            'message': 'A database error occurred'
         }), 500
     except Exception as e:
+        logging.error(f"Delete business case failed: {e}")
         return jsonify({
             'success': False,
-            'message': str(e)
+            'message': 'An internal error occurred'
         }), 500
 
 @app.route('/api/download/<file_type>', methods=['GET'])
@@ -1056,9 +1098,11 @@ def download_file(file_type):
         })
         
     except ClientError as e:
-        return jsonify({'success': False, 'message': f'S3 error: {str(e)}'}), 500
+        logging.error(f"S3 download error: {e}")
+        return jsonify({'success': False, 'message': 'A storage error occurred'}), 500
     except Exception as e:
-        return jsonify({'success': False, 'message': str(e)}), 500
+        logging.error(f"Download file failed: {e}")
+        return jsonify({'success': False, 'message': 'An internal error occurred'}), 500
 
 @app.route('/api/enhance-description', methods=['POST'])
 def enhance_description():
@@ -1153,10 +1197,10 @@ Enhanced description:"""
                         'errorCode': 'INVALID_CREDENTIALS'
                     }), 401
                 else:
-                    print(f"AI enhancement failed: {error_code} - {error_msg}")
+                    logging.error(f"AI enhancement failed: {error_code} - {error_msg}")
                     return jsonify({
                         'success': False,
-                        'message': f'AWS Bedrock error: {error_msg}',
+                        'message': 'An error occurred with the AI service',
                         'errorCode': error_code
                     }), 500
                     
@@ -1174,9 +1218,10 @@ Enhanced description:"""
         })
         
     except Exception as e:
+        logging.error(f"Enhance description failed: {e}")
         return jsonify({
             'success': False,
-            'message': str(e)
+            'message': 'An internal error occurred'
         }), 500
 
 @app.route('/api/config/schema', methods=['GET'])
@@ -1196,8 +1241,8 @@ def get_config_schema_endpoint():
     except Exception as e:
         import traceback
         error_details = traceback.format_exc()
-        print(f"Config schema error: {error_details}")
-        return jsonify({'error': str(e), 'details': error_details}), 500
+        logging.error(f"Config schema error: {error_details}")
+        return jsonify({'error': 'An internal error occurred'}), 500
 
 @app.route('/api/config', methods=['GET'])
 def get_config():
@@ -1226,8 +1271,8 @@ def get_config():
     except Exception as e:
         import traceback
         error_details = traceback.format_exc()
-        print(f"Config get error: {error_details}")
-        return jsonify({'error': str(e), 'details': error_details}), 500
+        logging.error(f"Config get error: {error_details}")
+        return jsonify({'error': 'An internal error occurred'}), 500
 
 @app.route('/api/config', methods=['POST'])
 def update_config():
@@ -1247,8 +1292,8 @@ def update_config():
     except Exception as e:
         import traceback
         error_details = traceback.format_exc()
-        print(f"Config update error: {error_details}")
-        return jsonify({'error': str(e), 'details': error_details}), 500
+        logging.error(f"Config update error: {error_details}")
+        return jsonify({'error': 'An internal error occurred'}), 500
 
 @app.route('/api/config/reset', methods=['POST'])
 def reset_config():
@@ -1261,8 +1306,8 @@ def reset_config():
     except Exception as e:
         import traceback
         error_details = traceback.format_exc()
-        print(f"Config reset error: {error_details}")
-        return jsonify({'error': str(e), 'details': error_details}), 500
+        logging.error(f"Config reset error: {error_details}")
+        return jsonify({'error': 'An internal error occurred'}), 500
 
 # ============================================================================
 # Frontend Serving (Production Only)
@@ -1276,9 +1321,11 @@ if IS_PRODUCTION:
         Serve React frontend in production mode.
         In development, Vite dev server handles this.
         """
-        # If path is a file and exists, serve it
-        if path and os.path.exists(os.path.join(FRONTEND_BUILD_DIR, path)):
-            return send_from_directory(FRONTEND_BUILD_DIR, path)
+        # If path is a file and exists, serve it (validate path stays within build dir)
+        if path:
+            full_path = os.path.realpath(os.path.join(FRONTEND_BUILD_DIR, path))
+            if full_path.startswith(os.path.realpath(FRONTEND_BUILD_DIR)) and os.path.exists(full_path):
+                return send_from_directory(FRONTEND_BUILD_DIR, path)
         
         # Otherwise serve index.html (for client-side routing)
         return send_from_directory(FRONTEND_BUILD_DIR, 'index.html')

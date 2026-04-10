@@ -8,7 +8,7 @@ AI-powered tool that generates comprehensive AWS migration business cases using 
 
 [![Launch Stack](https://s3.amazonaws.com/cloudformation-examples/cloudformation-launch-stack.png)](https://console.aws.amazon.com/cloudformation/home#/stacks/create)
 
-Download **[cloudformation-launch.yaml](https://gitlab.aws.dev/prgneshs/map-genai-use-cases/-/blob/main/agentic-ai-business-case/infrastructure/cloudformation-launch.yaml?ref_type=heads)** and upload it when prompted. Provide stack name as `BusinessCaseGenerator`. See [Deployment Options](#aws-deployment) for details.
+Download **[cloudformation-launch.yaml](https://github.com/aws-samples/sample-genai-in-modernization/blob/main/agentic-ai-business-case/infrastructure/cloudformation-launch.yaml)** and upload it when prompted. Provide stack name as `BusinessCaseGenerator`. See [Deployment Options](#aws-deployment) for details.
 
 ## Key Features
 
@@ -193,7 +193,7 @@ Three deployment options available:
 
 [![Launch Stack](https://s3.amazonaws.com/cloudformation-examples/cloudformation-launch-stack.png)](https://console.aws.amazon.com/cloudformation/home#/stacks/create)
 
-Click the button above, then select "Upload a template file" and upload **[cloudformation-launch.yaml](https://gitlab.aws.dev/prgneshs/map-genai-use-cases/-/blob/main/agentic-ai-business-case/infrastructure/cloudformation-launch.yaml?ref_type=heads)** from this repo. Use `BusinessCaseGenerator` as the stack name.
+Click the button above, then select "Upload a template file" and upload **[cloudformation-launch.yaml](https://github.com/aws-samples/sample-genai-in-modernization/blob/main/agentic-ai-business-case/infrastructure/cloudformation-launch.yaml)** from this repo. Use `BusinessCaseGenerator` as the stack name.
 
 **Prerequisites**: AWS account with Bedrock model access enabled. No local tools required.
 

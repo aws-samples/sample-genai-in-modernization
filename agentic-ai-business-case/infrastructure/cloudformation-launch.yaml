@@ -327,7 +327,7 @@ Resources:
           RequireSymbols: false
           RequireUppercase: true
       AdminCreateUserConfig:
-        AllowAdminCreateUserOnly: false
+        AllowAdminCreateUserOnly: true
       AccountRecoverySetting:
         RecoveryMechanisms:
           - Name: verified_email

@@ -5,7 +5,7 @@
 # ============================================================================
 # Stage 1: Build Frontend (native platform - avoids esbuild Go binary QEMU crash)
 # ============================================================================
-FROM --platform=$BUILDPLATFORM node:20-alpine3.21 AS frontend-build
+FROM --platform=$BUILDPLATFORM public.ecr.aws/docker/library/node:20-alpine3.21 AS frontend-build
 
 WORKDIR /app/ui
 
@@ -25,7 +25,7 @@ RUN npm run build
 # Stage 2: Build Backend with Frontend
 # ============================================================================
 
-FROM python:3.11-slim-bookworm AS base
+FROM public.ecr.aws/docker/library/python:3.11-slim-bookworm AS base
 
 # Force fresh package index and upgrade all packages to latest patched versions
 # Addresses openssl CVEs (3.0.18 -> 3.0.19): CVE-2026-31790, CVE-2026-28387,

@@ -2,105 +2,206 @@
 
 /* Markdown content styling */
 .markdown-content {
-  line-height: 1.6;
-  color: #545b64;
+  line-height: 1.8;
+  color: #16191f;
+  background-color: #ffffff;
+  padding: 20px;
+  border-radius: 8px;
 }
 
 .markdown-content h1 {
-  color: #232f3e;
+  color: #000716;
   font-size: 28px;
+  font-weight: 700;
   margin-bottom: 20px;
-  border-bottom: 2px solid #ff9900;
-  padding-bottom: 10px;
+  border-bottom: 3px solid #ff9900;
+  padding-bottom: 12px;
 }
 
 .markdown-content h2 {
-  color: #232f3e;
+  color: #000716;
   font-size: 24px;
-  margin-top: 30px;
-  margin-bottom: 15px;
+  font-weight: 700;
+  margin-top: 32px;
+  margin-bottom: 16px;
+  padding-left: 12px;
+  border-left: 4px solid #0073bb;
 }
 
 .markdown-content h3 {
-  color: #545b64;
+  color: #16191f;
   font-size: 20px;
+  font-weight: 600;
+  margin-top: 24px;
+  margin-bottom: 12px;
+}
+
+.markdown-content h4 {
+  color: #16191f;
+  font-size: 18px;
+  font-weight: 600;
   margin-top: 20px;
   margin-bottom: 10px;
 }
 
 .markdown-content p {
-  color: #545b64;
-  line-height: 1.6;
-  margin-bottom: 15px;
+  color: #16191f;
+  line-height: 1.8;
+  margin-bottom: 16px;
+  font-size: 15px;
 }
 
 .markdown-content ul,
 .markdown-content ol {
-  color: #545b64;
-  line-height: 1.6;
-  margin-bottom: 15px;
-  padding-left: 30px;
+  color: #16191f;
+  line-height: 1.8;
+  margin-bottom: 16px;
+  padding-left: 32px;
+}
+
+.markdown-content li {
+  margin-bottom: 8px;
+  font-size: 15px;
 }
 
 .markdown-content table {
   width: 100%;
   border-collapse: collapse;
-  margin: 20px 0;
+  margin: 24px 0;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+  border-radius: 8px;
+  overflow: hidden;
 }
 
 .markdown-content table th {
   background-color: #232f3e;
   color: white;
-  padding: 12px;
+  padding: 14px 16px;
   text-align: left;
-  font-weight: 600;
+  font-weight: 700;
+  font-size: 15px;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
 }
 
 .markdown-content table td {
-  padding: 10px 12px;
+  padding: 12px 16px;
   border-bottom: 1px solid #e9ebed;
+  font-size: 15px;
+  color: #16191f;
+}
+
+.markdown-content table tr:nth-child(even) {
+  background-color: #f9fafb;
 }
 
 .markdown-content table tr:hover {
-  background-color: #f9f9f9;
+  background-color: #e8f4f8;
+  transition: background-color 0.2s ease;
 }
 
 .markdown-content code {
-  background-color: #f4f4f4;
-  padding: 2px 6px;
-  border-radius: 3px;
-  font-family: 'Courier New', monospace;
+  background-color: #f4f6f8;
+  color: #d91515;
+  padding: 3px 8px;
+  border-radius: 4px;
+  font-family: 'Monaco', 'Courier New', monospace;
   font-size: 14px;
+  font-weight: 600;
+  border: 1px solid #e9ebed;
 }
 
 .markdown-content pre {
-  background-color: #f4f4f4;
-  padding: 15px;
-  border-radius: 5px;
+  background-color: #f4f6f8;
+  padding: 20px;
+  border-radius: 8px;
   overflow-x: auto;
-  margin: 15px 0;
+  margin: 20px 0;
+  border: 1px solid #e9ebed;
+  box-shadow: inset 0 1px 3px rgba(0, 0, 0, 0.05);
+}
+
+.markdown-content pre code {
+  background-color: transparent;
+  padding: 0;
+  border: none;
+  color: #16191f;
+  font-weight: 400;
 }
 
 .markdown-content blockquote {
-  border-left: 4px solid #ff9900;
+  border-left: 5px solid #ff9900;
   padding-left: 20px;
-  margin: 20px 0;
-  color: #545b64;
+  margin: 24px 0;
+  color: #16191f;
   font-style: italic;
+  background-color: #fff9f0;
+  padding: 16px 20px;
+  border-radius: 4px;
 }
 
 .markdown-content strong {
-  color: #232f3e;
-  font-weight: 600;
+  color: #000716;
+  font-weight: 700;
+}
+
+.markdown-content em {
+  color: #545b64;
+  font-style: italic;
 }
 
 .markdown-content a {
   color: #0073bb;
   text-decoration: none;
+  font-weight: 600;
+  border-bottom: 1px solid transparent;
+  transition: border-bottom-color 0.2s ease;
 }
 
 .markdown-content a:hover {
-  text-decoration: underline;
+  border-bottom-color: #0073bb;
+}
+
+/* Highlight key metrics and numbers */
+.markdown-content code:contains('$'),
+.markdown-content strong:contains('$') {
+  color: #037f0c;
+  font-weight: 700;
+}
+
+/* Red flags and warnings */
+.markdown-content li:contains('❌'),
+.markdown-content p:contains('❌') {
+  color: #d91515;
+  font-weight: 600;
+}
+
+/* Success indicators */
+.markdown-content li:contains('✓'),
+.markdown-content li:contains('✅'),
+.markdown-content p:contains('✓'),
+.markdown-content p:contains('✅') {
+  color: #037f0c;
+  font-weight: 600;
+}
+
+/* Priority badges in tables */
+.markdown-content td:first-child:contains('HIGH') {
+  color: #d91515;
+  font-weight: 700;
+  text-transform: uppercase;
+}
+
+.markdown-content td:first-child:contains('MEDIUM') {
+  color: #ff9900;
+  font-weight: 700;
+  text-transform: uppercase;
+}
+
+.markdown-content td:first-child:contains('LOW') {
+  color: #0073bb;
+  font-weight: 700;
+  text-transform: uppercase;
 }
 
 /* Chat message styling */

@@ -25,6 +25,8 @@ import LearningPathway from './components/map-assessment/LearningPathway.jsx';
 import BusinessCaseReview from './components/map-assessment/BusinessCaseReview.jsx';
 import ArchitectureDiagram from './components/map-assessment/ArchitectureDiagram.jsx';
 import ChatAssistant from './components/map-assessment/ChatAssistant.jsx';
+import ServiceAnalysis from './components/map-assessment/ServiceAnalysis.jsx';
+import OLAAnalysis from './components/map-assessment/OLAAnalysis.jsx';
 import { MapAssessmentProvider } from './contexts/MapAssessmentContext.jsx';
 import { getApiUrl } from './utils/apiConfig.js';
 import './styles/App.css';
@@ -84,6 +86,15 @@ function App() {
   useEffect(() => {
     checkStorageStatus();
     fetchCurrentUser();
+    
+    // Handle initial hash navigation on page load
+    const hash = window.location.hash;
+    if (hash) {
+      const view = hash.replace('#/', '');
+      if (view) {
+        setCurrentView(view);
+      }
+    }
   }, []);
 
   // Handle auto-saved cases - set currentCaseId and lastUpdated
@@ -378,6 +389,10 @@ function App() {
         return <ArchitectureDiagram />;
       case 'chat':
         return <ChatAssistant />;
+      case 'service-analysis':
+        return <ServiceAnalysis />;
+      case 'ola-analysis':
+        return <OLAAnalysis />;
       default:
         return null;
     }
@@ -478,6 +493,8 @@ function App() {
                     { type: 'link', text: 'Learning Pathway', href: '#/learning' },
                     { type: 'link', text: 'Business Case Review', href: '#/review' },
                     { type: 'link', text: 'Architecture Diagram', href: '#/architecture' },
+                    { type: 'link', text: 'Service Analysis', href: '#/service-analysis' },
+                    { type: 'link', text: 'OLA Analysis', href: '#/ola-analysis' },
                     { type: 'link', text: 'Chat Assistant', href: '#/chat' }
                   ]
                 }

@@ -8,6 +8,8 @@ Architecture:
 - S3 buckets for file storage
 - DynamoDB for case metadata
 - Route 53 for custom domain
+
+Build timestamp: 2026-03-05 12:00 - 3yr RI pricing + removed ARR Calculator
 """
 
 from aws_cdk import (

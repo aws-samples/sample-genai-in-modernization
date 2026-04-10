@@ -1,8 +1,14 @@
 # AWS Migration Business Case Generator
 
-**Version 1.0** | Production Ready
+**Version 1.0**
 
 AI-powered tool that generates comprehensive AWS migration business cases using multi-agent analysis of your infrastructure data. Includes standalone GenAI use cases for migration planning and assessment.
+
+## 🚀 Quick Deploy to AWS
+
+[![Launch Stack](https://s3.amazonaws.com/cloudformation-examples/cloudformation-launch-stack.png)](https://console.aws.amazon.com/cloudformation/home#/stacks/create)
+
+Download **[cloudformation-launch.yaml](https://gitlab.aws.dev/prgneshs/map-genai-use-cases/-/blob/main/agentic-ai-business-case/infrastructure/cloudformation-launch.yaml?ref_type=heads)** and upload it when prompted. Provide stack name as `BusinessCaseGenerator`. See [Deployment Options](#aws-deployment) for details.
 
 ## Key Features
 
@@ -24,8 +30,9 @@ AI-powered tool that generates comprehensive AWS migration business cases using 
 ✅ **Learning Pathway** - Personalized AWS training and certification roadmaps  
 ✅ **Business Case Review** - Validate and review business case documents  
 ✅ **Architecture Diagram** - Generate AWS architecture diagrams in Draw.io format  
-✅ **Chat Assistant** - Context-aware conversations with access to all generated outputs  
-✅ **Persistent State** - Data persists across use cases with reset functionality
+✅ **Service Analysis** - Identify missing AWS services and revenue opportunities from calculator data  
+✅ **OLA Analysis** - Preliminary licensing optimization assessment with 3-year RI pricing, bin-packing, and Excel export  
+✅ **Chat Assistant** - Context-aware conversations with access to all generated outputs
 
 ## Generated Outputs
 
@@ -113,7 +120,26 @@ Generate AWS architecture diagrams from requirements:
 - **Services**: Includes AWS services, connections, and best practices
 - **Output**: Editable Draw.io diagram file
 
-### 7. Chat Assistant
+### 7. Service Analysis
+Identify missing AWS services and additional revenue opportunities from AWS Calculator exports:
+- **Input**: AWS Pricing Calculator CSV export
+- **Analysis**: Examines 6 critical categories (Backup & Recovery, Storage, DR/HA, Network, Observability, Security)
+- **Gap Identification**: Identifies missing services and underutilized capabilities
+- **ARR Estimation**: Provides estimated additional ARR ($100K-$500K+) with SMART recommendations
+- **Custom Prompts**: Customize analysis focus and depth
+- **Output**: Comprehensive gap analysis with actionable recommendations and business justification
+
+### 8. OLA Analysis
+Preliminary licensing optimization assessment for AWS migration:
+- **Input**: RVTools CSV/Excel + Database Inventory CSV/Excel + SA status
+- **Analysis**: Windows Server, SQL Server, and Oracle licensing across 3 deployment options
+- **Pricing**: Real-time AWS Pricing API with 3-year Reserved Instance (No Upfront) pricing
+- **Bin-Packing**: Intelligent Dedicated Host allocation with utilization optimization
+- **Decision Guidance**: Product-specific BYOL options for SQL Server, Windows Server, and Oracle
+- **Excel Export**: Detailed per-server/per-database instance mapping with cost breakdown
+- **Output**: Complete OLA recommendation with ARR impact assessment
+
+### 9. Chat Assistant
 Context-aware conversational interface with access to all generated outputs:
 - **Context Selection**: Choose from any GenAI use case or general AWS knowledge
 - **Auto-Load**: Automatically loads outputs from selected use case
@@ -159,11 +185,80 @@ Access at: `http://localhost:3000`
 
 **Detailed setup**: See [SETUP_GUIDE.md](SETUP_GUIDE.md)
 
-### AWS Deployment (Production)
+### AWS Deployment
 
-Two deployment options available:
+Three deployment options available:
 
-#### Option 1: Full Production Deployment (Recommended)
+#### Option 1: CloudFormation Deploy with Cognito (Recommended)
+
+[![Launch Stack](https://s3.amazonaws.com/cloudformation-examples/cloudformation-launch-stack.png)](https://console.aws.amazon.com/cloudformation/home#/stacks/create)
+
+Click the button above, then select "Upload a template file" and upload **[cloudformation-launch.yaml](https://gitlab.aws.dev/prgneshs/map-genai-use-cases/-/blob/main/agentic-ai-business-case/infrastructure/cloudformation-launch.yaml?ref_type=heads)** from this repo. Use `BusinessCaseGenerator` as the stack name.
+
+**Prerequisites**: AWS account with Bedrock model access enabled. No local tools required.
+
+Deploys everything automatically via CloudFormation: VPC, ALB, ECS Fargate, S3, DynamoDB, Cognito User Pool, and CodeBuild (clones repo and builds Docker image).
+
+You'll be prompted for:
+- Stack name (use `BusinessCaseGenerator`)
+- Admin email — initial Cognito user, receives temporary password via email
+- Cognito domain prefix — globally unique (e.g. `my-company-business-case`)
+- Git repo URL, branch, and project subdirectory (defaults pre-filled)
+- Container CPU/Memory (defaults: 1024/2048)
+
+Stack creation takes ~10-15 minutes. After completion, access the app at the ALB URL shown in stack outputs.
+
+The script will:
+- ✓ Create VPC with public/private subnets and NAT Gateway
+- ✓ Set up Cognito User Pool with hosted UI login
+- ✓ Create initial admin user (temporary password emailed)
+- ✓ Use CodeBuild to clone repo and build Docker image automatically
+- ✓ Push image to ECR and deploy ECS Fargate service behind ALB
+- ✓ Create S3 buckets and DynamoDB table for persistence
+- ✓ Pass Cognito config to the app for session-based authentication
+
+**Features**:
+- Cognito authentication (user login with email/password)
+- No local tools or CLI required
+- Self-service user sign-up (or admin-only, configurable in Cognito console)
+- HTTP access via ALB DNS name
+- Suitable for demos, testing, and team use
+
+**To add more users**: Go to AWS Console → Cognito → User Pool → `business-case-users` → Create user
+
+#### Option 2: Simple CLI Deployment (No Auth)
+
+**Prerequisites**: AWS CLI (configured), Node.js, Python 3, Docker or Finch, AWS CDK CLI (`npm i -g aws-cdk`)
+
+Quick deployment without authentication using CDK:
+
+```bash
+# 1. Configure AWS credentials
+aws configure
+
+# 2. Make sure Docker or Finch is running to build container
+
+# 3. Build and Deploy application
+cd infrastructure/cdk
+./deploy-simple.sh
+```
+
+The script will:
+- ✓ Check all prerequisites (AWS CLI, Node.js, Python, Docker/Finch, CDK)
+- ✓ Build React frontend and Docker image locally
+- ✓ Deploy with minimal configuration
+- ✓ Provide ALB DNS name for access (e.g., `http://business-case-alb-123456.us-east-1.elb.amazonaws.com`)
+
+**Features**:
+- No authentication (open access)
+- No custom domain required
+- No SSL certificate needed
+- HTTP only (no HTTPS)
+- Quick setup for testing/demos
+
+**Security Note**: No authentication — suitable for testing/demo environments only.
+
+#### Option 3: Full Production Deployment (OIDC + Custom Domain)
 
 **Prerequisites**: AWS CLI, Node.js, Python 3, Docker or Finch, AWS CDK CLI, custom domain name, ACM certificate, OIDC provider configured with claims (subject, email, uid, given_name)
 
@@ -193,38 +288,7 @@ The script will:
 - Production-ready security
 - Suitable for enterprise deployments
 
-#### Option 2: Simple Deployment (Testing/Demo)
-
-**Prerequisites**: AWS CLI, Node.js, Python 3, Docker or Finch, AWS CDK CLI
-
-Quick deployment without OIDC, custom domain, or certificates:
-
-```bash
-# 1. Configure AWS credentials
-aws configure
-
-# 2. Make sure Docker or Finch is running to build container
-
-# 3. Build and Deploy application
-cd infrastructure/cdk
-./deploy-simple.sh
-```
-
-The script will:
-- ✓ Check all prerequisites
-- ✓ Deploy with minimal configuration
-- ✓ Provide ALB DNS name for access (e.g., `http://business-case-alb-123456.us-east-1.elb.amazonaws.com`)
-
-**Features**:
-- No authentication (open access)
-- No custom domain required
-- No SSL certificate needed
-- HTTP only (no HTTPS)
-- Quick setup for testing/demos
-
-**Security Note**: Simple deployment has no authentication and is suitable for testing/demo environments only. For production use, deploy with Option 1 (full deployment with OIDC).
-
-**Upgrade Path**: You can start with simple deployment for testing, then upgrade to full deployment with OIDC when ready for production.
+**Upgrade Path**: You can start with Option 1 or 2 for testing, then upgrade to Option 3 when ready for production.
 
 ### Bedrock Guardrails (Optional)
 
@@ -262,7 +326,7 @@ python agents/core/aws_business_case.py
 - **IT Inventory EKS analysis** using actual server specifications
 - **AWS Backup cost analysis** with intelligent storage tiering and environment detection
 
-**EKS Container Migration** (✅ Production Ready)
+**EKS Container Migration**
 - **Python-based recommendation engine** - Deterministic 4-tier decision tree
 - **Tier 1**: EKS cheaper → Recommend EKS
 - **Tier 2**: EKS 0-20% premium → Recommend EKS (strategic value)
@@ -272,7 +336,7 @@ python agents/core/aws_business_case.py
 - 35+ worker node types (Intel, AMD, Graviton), Spot instance strategy (30/40/30 mix)
 - Excel export with 5 tabs (Strategy, Categorization, Cluster Design, Cost Comparison, ROI)
 
-**AWS Backup Cost Analysis** (✅ Production Ready)
+**AWS Backup Cost Analysis**
 - **Intelligent storage tiering** - Warm → Archive → Deep Archive (up to 85% savings)
 - **Environment differentiation** - Production vs pre-production retention policies
 - **Automatic detection** - From VM names, folders, clusters
@@ -468,7 +532,7 @@ BEDROCK_GUARDRAIL_CONFIG = {
 - `SETUP_GUIDE.md` - Installation and configuration
 - `SYSTEM_ARCHITECTURE.md` - Technical architecture and data flow
 
-## EKS Container Migration (Production Ready)
+## EKS Container Migration
 
 **Python-Based Recommendation Engine**
 - Deterministic 4-tier decision tree (no LLM guessing)
@@ -563,7 +627,7 @@ Output:
 
 **Configuration**: Automatic when IT Inventory uploaded
 
-## AWS Backup Cost Analysis (Production Ready)
+## AWS Backup Cost Analysis
 
 **Intelligent Backup Cost Calculation with Storage Tiering**
 
@@ -663,7 +727,7 @@ Savings: $702.50/month (80%)
 
 ## Version Information
 
-**Current Version**: 1.0 (Production Ready)  
+**Current Version**: 1.0  
 **Release Date**: January 2026  
 **Python**: 3.8+  
 **Node.js**: 16+  

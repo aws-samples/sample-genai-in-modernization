@@ -1,0 +1,928 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Description: >
+  AWS Migration Business Case Generator - One-Click Deployment with Cognito Authentication.
+  Deploys VPC, ALB, ECS Fargate, S3, DynamoDB, Cognito User Pool, and uses CodeBuild
+  to clone the GitHub repo, build the Docker image, and deploy automatically.
+
+# ============================================================================
+# Parameters
+# ============================================================================
+Parameters:
+  GitHubRepoUrl:
+    Type: String
+    Default: https://github.com/aws-samples/sample-genai-in-modernization.git
+    Description: Git repository URL to clone and build
+  GitHubBranch:
+    Type: String
+    Default: main
+    Description: Git branch to build from
+  ProjectSubdirectory:
+    Type: String
+    Default: agentic-ai-business-case
+    Description: >
+      Subdirectory within the repo containing the project.
+      Leave as-is for the default repo structure. Set to '.' if project is at repo root.
+  ContainerCpu:
+    Type: Number
+    Default: 1024
+    Description: CPU units for ECS task (1024 = 1 vCPU)
+    AllowedValues: [512, 1024, 2048, 4096]
+  ContainerMemory:
+    Type: Number
+    Default: 2048
+    Description: Memory (MB) for ECS task
+    AllowedValues: [1024, 2048, 4096, 8192]
+  AdminEmail:
+    Type: String
+    Description: Admin email address for initial Cognito user (receives temporary password)
+    AllowedPattern: '[^\s@]+@[^\s@]+\.[^\s@]+'
+    ConstraintDescription: Must be a valid email address
+  CognitoDomainPrefix:
+    Type: String
+    Description: >
+      Unique prefix for Cognito hosted UI domain (e.g. my-business-case-app).
+      Must be globally unique across all AWS accounts.
+    AllowedPattern: '[a-z0-9-]+'
+    ConstraintDescription: Only lowercase letters, numbers, and hyphens allowed
+    MinLength: 3
+    MaxLength: 63
+
+Metadata:
+  AWS::CloudFormation::Interface:
+    ParameterGroups:
+      - Label:
+          default: Authentication
+        Parameters:
+          - AdminEmail
+          - CognitoDomainPrefix
+      - Label:
+          default: Source Code
+        Parameters:
+          - GitHubRepoUrl
+          - GitHubBranch
+          - ProjectSubdirectory
+      - Label:
+          default: Container Configuration
+        Parameters:
+          - ContainerCpu
+          - ContainerMemory
+    ParameterLabels:
+      AdminEmail:
+        default: Admin Email Address
+      CognitoDomainPrefix:
+        default: Cognito Domain Prefix (globally unique)
+      GitHubRepoUrl:
+        default: GitHub Repository URL
+      GitHubBranch:
+        default: Git Branch
+      ProjectSubdirectory:
+        default: Project Subdirectory in Repo
+      ContainerCpu:
+        default: Container CPU (units)
+      ContainerMemory:
+        default: Container Memory (MB)
+
+# ============================================================================
+# Resources
+# ============================================================================
+Resources:
+
+  # ==========================================================================
+  # VPC & Networking
+  # ==========================================================================
+  VPC:
+    Type: AWS::EC2::VPC
+    Properties:
+      CidrBlock: 10.0.0.0/16
+      EnableDnsSupport: true
+      EnableDnsHostnames: true
+      Tags:
+        - Key: Name
+          Value: business-case-vpc
+
+  InternetGateway:
+    Type: AWS::EC2::InternetGateway
+
+  VPCGatewayAttachment:
+    Type: AWS::EC2::VPCGatewayAttachment
+    Properties:
+      VpcId: !Ref VPC
+      InternetGatewayId: !Ref InternetGateway
+
+  PublicSubnet1:
+    Type: AWS::EC2::Subnet
+    Properties:
+      VpcId: !Ref VPC
+      CidrBlock: 10.0.1.0/24
+      AvailabilityZone: !Select [0, !GetAZs '']
+      MapPublicIpOnLaunch: true
+      Tags:
+        - Key: Name
+          Value: business-case-public-1
+
+  PublicSubnet2:
+    Type: AWS::EC2::Subnet
+    Properties:
+      VpcId: !Ref VPC
+      CidrBlock: 10.0.2.0/24
+      AvailabilityZone: !Select [1, !GetAZs '']
+      MapPublicIpOnLaunch: true
+      Tags:
+        - Key: Name
+          Value: business-case-public-2
+
+  PrivateSubnet1:
+    Type: AWS::EC2::Subnet
+    Properties:
+      VpcId: !Ref VPC
+      CidrBlock: 10.0.3.0/24
+      AvailabilityZone: !Select [0, !GetAZs '']
+      Tags:
+        - Key: Name
+          Value: business-case-private-1
+
+  PrivateSubnet2:
+    Type: AWS::EC2::Subnet
+    Properties:
+      VpcId: !Ref VPC
+      CidrBlock: 10.0.4.0/24
+      AvailabilityZone: !Select [1, !GetAZs '']
+      Tags:
+        - Key: Name
+          Value: business-case-private-2
+
+  PublicRouteTable:
+    Type: AWS::EC2::RouteTable
+    Properties:
+      VpcId: !Ref VPC
+
+  PublicRoute:
+    Type: AWS::EC2::Route
+    DependsOn: VPCGatewayAttachment
+    Properties:
+      RouteTableId: !Ref PublicRouteTable
+      DestinationCidrBlock: 0.0.0.0/0
+      GatewayId: !Ref InternetGateway
+
+  PublicSubnet1RouteTableAssociation:
+    Type: AWS::EC2::SubnetRouteTableAssociation
+    Properties:
+      SubnetId: !Ref PublicSubnet1
+      RouteTableId: !Ref PublicRouteTable
+
+  PublicSubnet2RouteTableAssociation:
+    Type: AWS::EC2::SubnetRouteTableAssociation
+    Properties:
+      SubnetId: !Ref PublicSubnet2
+      RouteTableId: !Ref PublicRouteTable
+
+  NatEIP:
+    Type: AWS::EC2::EIP
+    DependsOn: VPCGatewayAttachment
+    Properties:
+      Domain: vpc
+
+  NatGateway:
+    Type: AWS::EC2::NatGateway
+    Properties:
+      AllocationId: !GetAtt NatEIP.AllocationId
+      SubnetId: !Ref PublicSubnet1
+
+  PrivateRouteTable:
+    Type: AWS::EC2::RouteTable
+    Properties:
+      VpcId: !Ref VPC
+
+  PrivateRoute:
+    Type: AWS::EC2::Route
+    Properties:
+      RouteTableId: !Ref PrivateRouteTable
+      DestinationCidrBlock: 0.0.0.0/0
+      NatGatewayId: !Ref NatGateway
+
+  PrivateSubnet1RouteTableAssociation:
+    Type: AWS::EC2::SubnetRouteTableAssociation
+    Properties:
+      SubnetId: !Ref PrivateSubnet1
+      RouteTableId: !Ref PrivateRouteTable
+
+  PrivateSubnet2RouteTableAssociation:
+    Type: AWS::EC2::SubnetRouteTableAssociation
+    Properties:
+      SubnetId: !Ref PrivateSubnet2
+      RouteTableId: !Ref PrivateRouteTable
+
+  # ==========================================================================
+  # S3 Buckets
+  # ==========================================================================
+  InputBucket:
+    Type: AWS::S3::Bucket
+    Properties:
+      BucketName: !Sub business-case-input-${AWS::AccountId}-${AWS::Region}
+      VersioningConfiguration:
+        Status: Enabled
+      BucketEncryption:
+        ServerSideEncryptionConfiguration:
+          - ServerSideEncryptionByDefault:
+              SSEAlgorithm: AES256
+
+  OutputBucket:
+    Type: AWS::S3::Bucket
+    Properties:
+      BucketName: !Sub business-case-output-${AWS::AccountId}-${AWS::Region}
+      VersioningConfiguration:
+        Status: Enabled
+      BucketEncryption:
+        ServerSideEncryptionConfiguration:
+          - ServerSideEncryptionByDefault:
+              SSEAlgorithm: AES256
+
+  # ==========================================================================
+  # DynamoDB Table
+  # ==========================================================================
+  CasesTable:
+    Type: AWS::DynamoDB::Table
+    Properties:
+      TableName: business-case-cases
+      BillingMode: PAY_PER_REQUEST
+      PointInTimeRecoverySpecification:
+        PointInTimeRecoveryEnabled: true
+      StreamSpecification:
+        StreamViewType: NEW_AND_OLD_IMAGES
+      AttributeDefinitions:
+        - AttributeName: caseId
+          AttributeType: S
+        - AttributeName: createdAt
+          AttributeType: S
+        - AttributeName: userId
+          AttributeType: S
+      KeySchema:
+        - AttributeName: caseId
+          KeyType: HASH
+        - AttributeName: createdAt
+          KeyType: RANGE
+      GlobalSecondaryIndexes:
+        - IndexName: UserIdIndex
+          KeySchema:
+            - AttributeName: userId
+              KeyType: HASH
+            - AttributeName: createdAt
+              KeyType: RANGE
+          Projection:
+            ProjectionType: ALL
+
+  # ==========================================================================
+  # ECR Repository
+  # ==========================================================================
+  ECRRepository:
+    Type: AWS::ECR::Repository
+    Properties:
+      RepositoryName: business-case-generator
+      ImageScanningConfiguration:
+        ScanOnPush: true
+      LifecyclePolicy:
+        LifecyclePolicyText: |
+          {
+            "rules": [
+              {
+                "rulePriority": 1,
+                "description": "Keep last 5 images",
+                "selection": {
+                  "tagStatus": "any",
+                  "countType": "imageCountMoreThan",
+                  "countNumber": 5
+                },
+                "action": { "type": "expire" }
+              }
+            ]
+          }
+
+  # ==========================================================================
+  # Cognito User Pool
+  # ==========================================================================
+  CognitoUserPool:
+    Type: AWS::Cognito::UserPool
+    Properties:
+      UserPoolName: business-case-users
+      AutoVerifiedAttributes:
+        - email
+      UsernameAttributes:
+        - email
+      MfaConfiguration: 'OFF'
+      Schema:
+        - Name: email
+          Required: true
+          Mutable: true
+        - Name: given_name
+          Required: false
+          Mutable: true
+        - Name: family_name
+          Required: false
+          Mutable: true
+      Policies:
+        PasswordPolicy:
+          MinimumLength: 8
+          RequireLowercase: true
+          RequireNumbers: true
+          RequireSymbols: false
+          RequireUppercase: true
+      AdminCreateUserConfig:
+        AllowAdminCreateUserOnly: false
+      AccountRecoverySetting:
+        RecoveryMechanisms:
+          - Name: verified_email
+            Priority: 1
+
+  CognitoUserPoolDomain:
+    Type: AWS::Cognito::UserPoolDomain
+    Properties:
+      Domain: !Ref CognitoDomainPrefix
+      UserPoolId: !Ref CognitoUserPool
+
+  # App client - callback URLs updated post-deploy via Custom Resource
+  CognitoUserPoolClient:
+    Type: AWS::Cognito::UserPoolClient
+    DependsOn: CognitoUserPoolDomain
+    Properties:
+      ClientName: business-case-app
+      UserPoolId: !Ref CognitoUserPool
+      GenerateSecret: true
+      ExplicitAuthFlows:
+        - ALLOW_USER_PASSWORD_AUTH
+        - ALLOW_REFRESH_TOKEN_AUTH
+      AllowedOAuthFlows:
+        - code
+      AllowedOAuthScopes:
+        - openid
+        - email
+        - profile
+      AllowedOAuthFlowsUserPoolClient: true
+      SupportedIdentityProviders:
+        - COGNITO
+      CallbackURLs:
+        - !Sub http://${ALB.DNSName}/auth/callback
+      LogoutURLs:
+        - !Sub http://${ALB.DNSName}
+
+  # Create initial admin user
+  CognitoAdminUser:
+    Type: AWS::Cognito::UserPoolUser
+    Properties:
+      UserPoolId: !Ref CognitoUserPool
+      Username: !Ref AdminEmail
+      UserAttributes:
+        - Name: email
+          Value: !Ref AdminEmail
+        - Name: email_verified
+          Value: 'true'
+      DesiredDeliveryMediums:
+        - EMAIL
+
+  # ==========================================================================
+  # Lambda to retrieve Cognito Client Secret (CF can't read it directly)
+  # ==========================================================================
+  GetClientSecretRole:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: lambda.amazonaws.com
+            Action: sts:AssumeRole
+      ManagedPolicyArns:
+        - arn:aws:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole
+      Policies:
+        - PolicyName: CognitoDescribePolicy
+          PolicyDocument:
+            Version: '2012-10-17'
+            Statement:
+              - Effect: Allow
+                Action:
+                  - cognito-idp:DescribeUserPoolClient
+                Resource: !GetAtt CognitoUserPool.Arn
+
+  GetClientSecretLambda:
+    Type: AWS::Lambda::Function
+    Properties:
+      FunctionName: business-case-get-client-secret
+      Runtime: python3.12
+      Handler: index.handler
+      Timeout: 30
+      MemorySize: 128
+      Role: !GetAtt GetClientSecretRole.Arn
+      Code:
+        ZipFile: |
+          import json
+          import boto3
+          import urllib.request
+
+          def handler(event, context):
+              response_data = {}
+              physical_id = 'GetClientSecret'
+              try:
+                  if event.get('RequestType') == 'Delete':
+                      send_response(event, context, 'SUCCESS', response_data, physical_id)
+                      return
+                  client = boto3.client('cognito-idp')
+                  resp = client.describe_user_pool_client(
+                      UserPoolId=event['ResourceProperties']['UserPoolId'],
+                      ClientId=event['ResourceProperties']['ClientId']
+                  )
+                  response_data['ClientSecret'] = resp['UserPoolClient']['ClientSecret']
+                  send_response(event, context, 'SUCCESS', response_data, physical_id)
+              except Exception as e:
+                  print(f"Error: {e}")
+                  send_response(event, context, 'FAILED', response_data, physical_id, str(e))
+
+          def send_response(event, context, status, data, physical_id, reason=''):
+              body = json.dumps({
+                  'Status': status,
+                  'Reason': reason or f"See CloudWatch: {context.log_stream_name}",
+                  'PhysicalResourceId': physical_id,
+                  'StackId': event['StackId'],
+                  'RequestId': event['RequestId'],
+                  'LogicalResourceId': event['LogicalResourceId'],
+                  'Data': data
+              })
+              req = urllib.request.Request(
+                  event['ResponseURL'], data=body.encode('utf-8'),
+                  headers={'Content-Type': 'application/json'}, method='PUT'
+              )
+              urllib.request.urlopen(req)
+
+  GetClientSecret:
+    Type: Custom::GetClientSecret
+    Properties:
+      ServiceToken: !GetAtt GetClientSecretLambda.Arn
+      UserPoolId: !Ref CognitoUserPool
+      ClientId: !Ref CognitoUserPoolClient
+
+  # ==========================================================================
+  # Security Groups
+  # ==========================================================================
+  ALBSecurityGroup:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupDescription: ALB Security Group
+      VpcId: !Ref VPC
+      SecurityGroupIngress:
+        - IpProtocol: tcp
+          FromPort: 80
+          ToPort: 80
+          CidrIp: 0.0.0.0/0
+
+  ECSSecurityGroup:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupDescription: ECS Tasks Security Group
+      VpcId: !Ref VPC
+      SecurityGroupIngress:
+        - IpProtocol: tcp
+          FromPort: 8080
+          ToPort: 8080
+          SourceSecurityGroupId: !Ref ALBSecurityGroup
+
+  # ==========================================================================
+  # ECS Cluster & Roles
+  # ==========================================================================
+  ECSCluster:
+    Type: AWS::ECS::Cluster
+    Properties:
+      ClusterName: business-case-cluster
+      ClusterSettings:
+        - Name: containerInsights
+          Value: enabled
+
+  ECSTaskExecutionRole:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: ecs-tasks.amazonaws.com
+            Action: sts:AssumeRole
+      ManagedPolicyArns:
+        - arn:aws:iam::aws:policy/service-role/AmazonECSTaskExecutionRolePolicy
+
+  ECSTaskRole:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: ecs-tasks.amazonaws.com
+            Action: sts:AssumeRole
+      Policies:
+        - PolicyName: BusinessCaseTaskPolicy
+          PolicyDocument:
+            Version: '2012-10-17'
+            Statement:
+              - Effect: Allow
+                Action:
+                  - s3:GetObject
+                  - s3:PutObject
+                  - s3:ListBucket
+                  - s3:DeleteObject
+                Resource:
+                  - !GetAtt InputBucket.Arn
+                  - !Sub ${InputBucket.Arn}/*
+                  - !GetAtt OutputBucket.Arn
+                  - !Sub ${OutputBucket.Arn}/*
+              - Effect: Allow
+                Action:
+                  - dynamodb:GetItem
+                  - dynamodb:PutItem
+                  - dynamodb:UpdateItem
+                  - dynamodb:DeleteItem
+                  - dynamodb:Query
+                  - dynamodb:Scan
+                Resource:
+                  - !GetAtt CasesTable.Arn
+                  - !Sub ${CasesTable.Arn}/index/*
+              - Effect: Allow
+                Action:
+                  - bedrock:InvokeModel
+                  - bedrock:InvokeModelWithResponseStream
+                Resource:
+                  - arn:aws:bedrock:*:*:foundation-model/*
+                  - arn:aws:bedrock:*:*:inference-profile/*
+              - Effect: Allow
+                Action:
+                  - pricing:GetProducts
+                  - pricing:DescribeServices
+                  - pricing:GetAttributeValues
+                Resource: '*'
+              - Effect: Allow
+                Action:
+                  - savingsplans:DescribeSavingsPlansOfferingRates
+                  - savingsplans:DescribeSavingsPlansOfferings
+                Resource: '*'
+
+  # ==========================================================================
+  # Task Definition (depends on CodeBuild completing the Docker image)
+  # ==========================================================================
+  LogGroup:
+    Type: AWS::Logs::LogGroup
+    Properties:
+      LogGroupName: /ecs/business-case-generator
+      RetentionInDays: 7
+
+  TaskDefinition:
+    Type: AWS::ECS::TaskDefinition
+    DependsOn: BuildTrigger
+    Properties:
+      Family: business-case-task
+      Cpu: !Ref ContainerCpu
+      Memory: !Ref ContainerMemory
+      NetworkMode: awsvpc
+      RequiresCompatibilities:
+        - FARGATE
+      ExecutionRoleArn: !GetAtt ECSTaskExecutionRole.Arn
+      TaskRoleArn: !GetAtt ECSTaskRole.Arn
+      ContainerDefinitions:
+        - Name: app
+          Image: !Sub ${AWS::AccountId}.dkr.ecr.${AWS::Region}.amazonaws.com/business-case-generator:latest
+          Essential: true
+          PortMappings:
+            - ContainerPort: 8080
+              Protocol: tcp
+          Environment:
+            - Name: FLASK_ENV
+              Value: production
+            - Name: AWS_REGION
+              Value: !Ref AWS::Region
+            - Name: S3_INPUT_BUCKET
+              Value: !Ref InputBucket
+            - Name: S3_OUTPUT_BUCKET
+              Value: !Ref OutputBucket
+            - Name: DYNAMODB_TABLE_NAME
+              Value: !Ref CasesTable
+            - Name: AUTO_SAVE_TO_DYNAMODB
+              Value: 'true'
+            - Name: COGNITO_USER_POOL_ID
+              Value: !Ref CognitoUserPool
+            - Name: COGNITO_CLIENT_ID
+              Value: !Ref CognitoUserPoolClient
+            - Name: COGNITO_CLIENT_SECRET
+              Value: !GetAtt GetClientSecret.ClientSecret
+            - Name: COGNITO_DOMAIN
+              Value: !Sub ${CognitoDomainPrefix}.auth.${AWS::Region}.amazoncognito.com
+            - Name: APP_URL
+              Value: !Sub http://${ALB.DNSName}
+          LogConfiguration:
+            LogDriver: awslogs
+            Options:
+              awslogs-group: !Ref LogGroup
+              awslogs-region: !Ref AWS::Region
+              awslogs-stream-prefix: business-case
+          HealthCheck:
+            Command:
+              - CMD-SHELL
+              - python -c "import urllib.request; urllib.request.urlopen('http://localhost:8080/api/health')" || exit 1
+            Interval: 30
+            Timeout: 10
+            Retries: 3
+            StartPeriod: 60
+
+  # ==========================================================================
+  # ALB, Listener, Target Group, ECS Service
+  # ==========================================================================
+  ALB:
+    Type: AWS::ElasticLoadBalancingV2::LoadBalancer
+    Properties:
+      Name: business-case-alb
+      Scheme: internet-facing
+      Type: application
+      Subnets:
+        - !Ref PublicSubnet1
+        - !Ref PublicSubnet2
+      SecurityGroups:
+        - !Ref ALBSecurityGroup
+      LoadBalancerAttributes:
+        - Key: idle_timeout.timeout_seconds
+          Value: '600'
+
+  TargetGroup:
+    Type: AWS::ElasticLoadBalancingV2::TargetGroup
+    Properties:
+      VpcId: !Ref VPC
+      Port: 8080
+      Protocol: HTTP
+      TargetType: ip
+      HealthCheckPath: /api/health
+      HealthCheckIntervalSeconds: 30
+      HealthCheckTimeoutSeconds: 10
+      HealthyThresholdCount: 2
+      UnhealthyThresholdCount: 3
+      TargetGroupAttributes:
+        - Key: deregistration_delay.timeout_seconds
+          Value: '30'
+
+  HTTPListener:
+    Type: AWS::ElasticLoadBalancingV2::Listener
+    Properties:
+      LoadBalancerArn: !Ref ALB
+      Port: 80
+      Protocol: HTTP
+      DefaultActions:
+        - Type: forward
+          TargetGroupArn: !Ref TargetGroup
+
+  ECSService:
+    Type: AWS::ECS::Service
+    DependsOn:
+      - HTTPListener
+      - BuildTrigger
+    Properties:
+      ServiceName: business-case-service
+      Cluster: !Ref ECSCluster
+      TaskDefinition: !Ref TaskDefinition
+      DesiredCount: 1
+      LaunchType: FARGATE
+      HealthCheckGracePeriodSeconds: 120
+      NetworkConfiguration:
+        AwsvpcConfiguration:
+          AssignPublicIp: DISABLED
+          Subnets:
+            - !Ref PrivateSubnet1
+            - !Ref PrivateSubnet2
+          SecurityGroups:
+            - !Ref ECSSecurityGroup
+      LoadBalancers:
+        - ContainerName: app
+          ContainerPort: 8080
+          TargetGroupArn: !Ref TargetGroup
+
+  # ==========================================================================
+  # CodeBuild - Builds Docker image from GitHub repo
+  # ==========================================================================
+  CodeBuildRole:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: codebuild.amazonaws.com
+            Action: sts:AssumeRole
+      Policies:
+        - PolicyName: CodeBuildPolicy
+          PolicyDocument:
+            Version: '2012-10-17'
+            Statement:
+              - Effect: Allow
+                Action:
+                  - ecr:GetAuthorizationToken
+                Resource: '*'
+              - Effect: Allow
+                Action:
+                  - ecr:BatchCheckLayerAvailability
+                  - ecr:GetDownloadUrlForLayer
+                  - ecr:BatchGetImage
+                  - ecr:PutImage
+                  - ecr:InitiateLayerUpload
+                  - ecr:UploadLayerPart
+                  - ecr:CompleteLayerUpload
+                Resource: !GetAtt ECRRepository.Arn
+              - Effect: Allow
+                Action:
+                  - logs:CreateLogGroup
+                  - logs:CreateLogStream
+                  - logs:PutLogEvents
+                Resource: '*'
+
+  CodeBuildProject:
+    Type: AWS::CodeBuild::Project
+    Properties:
+      Name: business-case-build
+      Description: Build Docker image for Business Case Generator
+      ServiceRole: !GetAtt CodeBuildRole.Arn
+      Artifacts:
+        Type: NO_ARTIFACTS
+      Environment:
+        Type: LINUX_CONTAINER
+        ComputeType: BUILD_GENERAL1_MEDIUM
+        Image: aws/codebuild/amazonlinux2-x86_64-standard:5.0
+        PrivilegedMode: true
+        EnvironmentVariables:
+          - Name: AWS_ACCOUNT_ID
+            Value: !Ref AWS::AccountId
+          - Name: AWS_DEFAULT_REGION
+            Value: !Ref AWS::Region
+          - Name: ECR_REPO_URI
+            Value: !Sub ${AWS::AccountId}.dkr.ecr.${AWS::Region}.amazonaws.com/business-case-generator
+          - Name: GITHUB_REPO
+            Value: !Ref GitHubRepoUrl
+          - Name: GITHUB_BRANCH
+            Value: !Ref GitHubBranch
+          - Name: PROJECT_SUBDIR
+            Value: !Ref ProjectSubdirectory
+      Source:
+        Type: NO_SOURCE
+        BuildSpec: |
+          version: 0.2
+          phases:
+            pre_build:
+              commands:
+                - echo Logging in to Amazon ECR...
+                - aws ecr get-login-password --region $AWS_DEFAULT_REGION | docker login --username AWS --password-stdin $AWS_ACCOUNT_ID.dkr.ecr.$AWS_DEFAULT_REGION.amazonaws.com
+                - echo Cloning repository...
+                - git clone --depth 1 --branch $GITHUB_BRANCH $GITHUB_REPO repo
+            build:
+              commands:
+                - echo Navigating to project directory...
+                - cd repo/$PROJECT_SUBDIR
+                - echo Building Docker image from $(pwd)...
+                - DOCKER_BUILDKIT=1 docker build -t business-case-generator:latest -f infrastructure/Dockerfile .
+                - docker tag business-case-generator:latest $ECR_REPO_URI:latest
+            post_build:
+              commands:
+                - echo Pushing Docker image to ECR...
+                - docker push $ECR_REPO_URI:latest
+                - echo Build completed successfully
+      TimeoutInMinutes: 30
+
+  # ==========================================================================
+  # Custom Resource Lambda - Triggers CodeBuild during stack creation
+  # ==========================================================================
+  BuildTriggerLambdaRole:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: lambda.amazonaws.com
+            Action: sts:AssumeRole
+      ManagedPolicyArns:
+        - arn:aws:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole
+      Policies:
+        - PolicyName: CodeBuildTriggerPolicy
+          PolicyDocument:
+            Version: '2012-10-17'
+            Statement:
+              - Effect: Allow
+                Action:
+                  - codebuild:StartBuild
+                  - codebuild:BatchGetBuilds
+                Resource: !GetAtt CodeBuildProject.Arn
+
+  BuildTriggerLambda:
+    Type: AWS::Lambda::Function
+    Properties:
+      FunctionName: business-case-build-trigger
+      Runtime: python3.12
+      Handler: index.handler
+      Timeout: 900
+      MemorySize: 128
+      Role: !GetAtt BuildTriggerLambdaRole.Arn
+      Code:
+        ZipFile: |
+          import json
+          import boto3
+          import time
+          import urllib.request
+
+          def handler(event, context):
+              response_data = {}
+              physical_id = 'BuildTrigger'
+              try:
+                  if event.get('RequestType') == 'Delete':
+                      send_response(event, context, 'SUCCESS', response_data, physical_id)
+                      return
+                  codebuild = boto3.client('codebuild')
+                  project_name = event['ResourceProperties']['ProjectName']
+                  build_resp = codebuild.start_build(projectName=project_name)
+                  build_id = build_resp['build']['id']
+                  print(f"Started build: {build_id}")
+                  for i in range(85):
+                      time.sleep(10)
+                      status_resp = codebuild.batch_get_builds(ids=[build_id])
+                      build_status = status_resp['builds'][0]['buildStatus']
+                      phase = status_resp['builds'][0].get('currentPhase', 'UNKNOWN')
+                      print(f"Build status: {build_status}, phase: {phase}")
+                      if build_status == 'SUCCEEDED':
+                          response_data['BuildId'] = build_id
+                          send_response(event, context, 'SUCCESS', response_data, physical_id)
+                          return
+                      elif build_status in ['FAILED', 'FAULT', 'STOPPED', 'TIMED_OUT']:
+                          send_response(event, context, 'FAILED', response_data, physical_id,
+                                        f"CodeBuild failed: {build_status}")
+                          return
+                  send_response(event, context, 'FAILED', response_data, physical_id, 'Build timed out')
+              except Exception as e:
+                  print(f"Error: {e}")
+                  send_response(event, context, 'FAILED', response_data, physical_id, str(e))
+
+          def send_response(event, context, status, data, physical_id, reason=''):
+              body = json.dumps({
+                  'Status': status,
+                  'Reason': reason or f"See CloudWatch: {context.log_stream_name}",
+                  'PhysicalResourceId': physical_id,
+                  'StackId': event['StackId'],
+                  'RequestId': event['RequestId'],
+                  'LogicalResourceId': event['LogicalResourceId'],
+                  'Data': data
+              })
+              req = urllib.request.Request(
+                  event['ResponseURL'], data=body.encode('utf-8'),
+                  headers={'Content-Type': 'application/json'}, method='PUT'
+              )
+              urllib.request.urlopen(req)
+
+  BuildTrigger:
+    Type: Custom::BuildTrigger
+    DependsOn:
+      - CodeBuildProject
+      - ECRRepository
+    Properties:
+      ServiceToken: !GetAtt BuildTriggerLambda.Arn
+      ProjectName: !Ref CodeBuildProject
+      BuildVersion: '1'
+
+# ============================================================================
+# Outputs
+# ============================================================================
+Outputs:
+  ApplicationURL:
+    Description: Application URL (wait 2-3 min after stack creation for ECS to start)
+    Value: !Sub http://${ALB.DNSName}
+  LoadBalancerDNS:
+    Description: ALB DNS Name
+    Value: !GetAtt ALB.DNSName
+  CognitoLoginURL:
+    Description: Cognito Hosted UI login page
+    Value: !Sub >-
+      https://${CognitoDomainPrefix}.auth.${AWS::Region}.amazoncognito.com/login?client_id=${CognitoUserPoolClient}&response_type=code&scope=openid+email+profile&redirect_uri=http://${ALB.DNSName}/auth/callback
+  CognitoUserPoolId:
+    Description: Cognito User Pool ID (for adding users)
+    Value: !Ref CognitoUserPool
+  CognitoClientId:
+    Description: Cognito App Client ID
+    Value: !Ref CognitoUserPoolClient
+  InputBucket:
+    Description: S3 bucket for input files
+    Value: !Ref InputBucket
+  OutputBucket:
+    Description: S3 bucket for output files
+    Value: !Ref OutputBucket
+  DynamoDBTable:
+    Description: DynamoDB table for case storage
+    Value: !Ref CasesTable
+  ECRRepository:
+    Description: ECR repository for container images
+    Value: !Sub ${AWS::AccountId}.dkr.ecr.${AWS::Region}.amazonaws.com/business-case-generator
+  AdminNote:
+    Description: Login instructions
+    Value: !Sub >-
+      A temporary password was sent to ${AdminEmail}. 
+      Log in at the application URL and change your password on first login.
+      To add more users, go to Cognito console > User Pool > business-case-users.

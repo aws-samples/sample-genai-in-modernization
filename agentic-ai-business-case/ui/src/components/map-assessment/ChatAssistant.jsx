@@ -40,6 +40,8 @@ function ChatAssistant() {
     { label: 'Learning Pathway', value: 'learning-pathway' },
     { label: 'Business Case Review', value: 'business-case' },
     { label: 'Architecture Diagram', value: 'architecture' },
+    { label: 'Service Analysis', value: 'service-analysis' },
+    { label: 'OLA Analysis', value: 'ola-analysis' },
     { label: 'AWS Knowledge Base', value: 'knowledge-base' }
   ];
 
@@ -147,6 +149,10 @@ function ChatAssistant() {
         return 'Review and discuss business case details';
       case 'architecture':
         return 'Questions about AWS architecture and design patterns';
+      case 'service-analysis':
+        return 'Analyze infrastructure completeness and identify missing services';
+      case 'ola-analysis':
+        return 'Discuss licensing optimization and OLA recommendations';
       case 'knowledge-base':
         return 'Search AWS documentation, best practices, and knowledge base';
       default:

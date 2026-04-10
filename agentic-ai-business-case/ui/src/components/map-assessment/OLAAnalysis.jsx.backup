@@ -1,0 +1,289 @@
+import React, { useState, useEffect } from 'react';
+import {
+  Container,
+  Header,
+  SpaceBetween,
+  FormField,
+  FileUpload,
+  Button,
+  Alert,
+  Select,
+  Box,
+  Spinner,
+  ColumnLayout,
+  Badge,
+  ProgressBar,
+  Tabs,
+  ExpandableSection
+} from '@cloudscape-design/components';
+import { getApiUrl } from '../../utils/apiConfig.js';
+import { useMapAssessment } from '../../contexts/MapAssessmentContext.jsx';
+
+function OLAAnalysis() {
+  const { olaData, setOLAData, resetOLA } = useMapAssessment();
+  
+  const [rvtoolsFile, setRvtoolsFile] = useState([]);
+  const [databaseFile, setDatabaseFile] = useState([]);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState(null);
+  const [results, setResults] = useState(olaData?.results || null);
+  const [activeTabId, setActiveTabId] = useState('decision-guidance'); // Default to guidance
+  
+  const [saStatus, setSaStatus] = useState({ 
+    label: 'Need to verify with Microsoft', 
+    value: 'need_verify' 
+  });
+  
+  const [region, setRegion] = useState({ 
+    label: 'US East (N. Virginia)', 
+    value: 'us-east-1' 
+  });
+
+  const saStatusOptions = [
+    { label: 'Have active SA on all licenses', value: 'all_active' },
+    { label: 'Have SA on some licenses', value: 'mixed' },
+    { label: 'No active SA / Unknown', value: 'none_unknown' },
+    { label: 'Need to verify with Microsoft', value: 'need_verify' }
+  ];
+
+  const regionOptions = [
+    { label: 'US East (N. Virginia)', value: 'us-east-1' },
+    { label: 'US West (Oregon)', value: 'us-west-2' },
+    { label: 'EU (Ireland)', value: 'eu-west-1' },
+    { label: 'Asia Pacific (Singapore)', value: 'ap-southeast-1' }
+  ];
+
+  // Load existing data from context
+  useEffect(() => {
+    if (olaData?.results) {
+      setResults(olaData.results);
+    }
+  }, [olaData]);
+
+  const handleAnalyze = async () => {
+    if (rvtoolsFile.length === 0 || databaseFile.length === 0) {
+      setError('Please upload both RVTools and Database Inventory files');
+      return;
+    }
+
+    setLoading(true);
+    setError(null);
+
+    try {
+      const formData = new FormData();
+      formData.append('rvtools', rvtoolsFile[0]);
+      formData.append('database_inventory', databaseFile[0]);
+      formData.append('sa_status', saStatus.value);
+      formData.append('region', region.value);
+
+      const response = await fetch(getApiUrl('/map/ola/analyze'), {
+        method: 'POST',
+        body: formData
+      });
+
+      const result = await response.json();
+      
+      if (!result.success) {
+        throw new Error(result.message);
+      }
+
+      setResults(result.summary);
+      setOLAData({ results: result.summary });
+      setActiveTabId('results'); // Switch to results tab after analysis
+    } catch (err) {
+      setError(err.message || 'Failed to analyze OLA');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleReset = () => {
+    setResults(null);
+    setRvtoolsFile([]);
+    setDatabaseFile([]);
+    setSaStatus({ label: 'Need to verify with Microsoft', value: 'need_verify' });
+    setActiveTabId('decision-guidance'); // Return to guidance tab
+    resetOLA();
+  };
+
+  const getOLABadgeType = (level) => {
+    if (level === 'OLA Required') return 'red';
+    if (level === 'OLA Strongly Recommended') return 'red';
+    if (level === 'OLA Recommended') return 'blue';
+    if (level === 'OLA Optional') return 'grey';
+    return 'green';
+  };
+
+  return (
+    <SpaceBetween size="l">
+      <Container
+        header={
+          <Header
+            variant="h1"
+            description="Preliminary licensing optimization assessment for AWS migration"
+            actions={
+              results && (
+                <Button onClick={handleReset}>
+                  Reset
+                </Button>
+              )
+            }
+          >
+            Preliminary OLA Analysis
+          </Header>
+        }
+      >
+        <Tabs
+          activeTabId={activeTabId}
+          onChange={({ detail }) => setActiveTabId(detail.activeTabId)}
+          tabs={[
+            {
+              id: 'input',
+              label: 'Input',
+              content: (
+                <SpaceBetween size="m">
+                  {/* Disclaimers */}
+                  <Alert type="warning">
+                    <SpaceBetween size="xs">
+                      <Box variant="strong">⚠️ IMPORTANT DISCLAIMERS</Box>
+                      <Box>
+                        • This is NOT a replacement for official AWS OLA<br/>
+                        • Preliminary assessment only - requires license verification<br/>
+                        • Please share existing license agreements for detailed review<br/>
+                        • Microsoft Oct 2019 licensing changes may impact costs
+                      </Box>
+                    </SpaceBetween>
+                  </Alert>
+
+                  {/* Microsoft Oct 2019 Notice */}
+                  <Alert type="info">
+                    <SpaceBetween size="xs">
+                      <Box variant="strong">📅 Microsoft October 1, 2019 Licensing Changes</Box>
+                      <Box>
+                        Microsoft implemented significant licensing changes affecting BYOL deployments 
+                        on "Listed Providers" like AWS:
+                      </Box>
+                      <ul>
+                        <li>Products without License Mobility require Dedicated Hosts</li>
+                        <li>BYOL on shared EC2 requires active Software Assurance (SA)</li>
+                        <li>Windows Server & SQL Server without SA must use Dedicated Hosts</li>
+                        <li>License Included options are not affected</li>
+                      </ul>
+                      <Box variant="strong">⚠️ Action Required: Verify your SA status before proceeding</Box>
+                    </SpaceBetween>
+                  </Alert>
+
+                  {/* Upload Form */}
+                  <SpaceBetween size="l">
+                    <FormField
+                      label="RVTools Export"
+                      description="Upload your RVTools CSV or Excel export containing server inventory"
+                    >
+                      <FileUpload
+                        value={rvtoolsFile}
+                        onChange={({ detail }) => setRvtoolsFile(detail.value)}
+                        accept=".csv,.xlsx,.xls"
+                        constraintText="CSV or Excel files only"
+                      />
+                    </FormField>
+
+                    <FormField
+                      label="Database Inventory"
+                      description="Upload database inventory CSV with SQL Server, Oracle, and other databases"
+                    >
+                      <FileUpload
+                        value={databaseFile}
+                        onChange={({ detail }) => setDatabaseFile(detail.value)}
+                        accept=".csv,.xlsx,.xls"
+                        constraintText="CSV or Excel files only"
+                      />
+                    </FormField>
+
+                    <FormField
+                      label="Software Assurance Status"
+                      description="Select your current SA status (critical for cost estimates)"
+                    >
+                      <Select
+                        selectedOption={saStatus}
+                        onChange={({ detail }) => setSaStatus(detail.selectedOption)}
+                        options={saStatusOptions}
+                      />
+                    </FormField>
+
+                    <FormField
+                      label="AWS Region"
+                      description="Target AWS region for migration"
+                    >
+                      <Select
+                        selectedOption={region}
+                        onChange={({ detail }) => setRegion(detail.selectedOption)}
+                        options={regionOptions}
+                      />
+                    </FormField>
+
+                    {error && (
+                      <Alert
+                        type="error"
+                        dismissible
+                        onDismiss={() => setError(null)}
+                      >
+                        {error}
+                      </Alert>
+                    )}
+
+                    {loading && (
+                      <Box textAlign="center" padding="l">
+                        <SpaceBetween size="m" alignItems="center">
+                          <Spinner size="large" />
+                          <Box variant="p" color="text-body-secondary">
+                            Analyzing licensing and calculating costs with AWS Pricing API... This may take 2-3 minutes.
+                          </Box>
+                          <ProgressBar value={50} />
+                        </SpaceBetween>
+                      </Box>
+                    )}
+
+                    <Box textAlign="center">
+                      <Button
+                        variant="primary"
+                        onClick={handleAnalyze}
+                        disabled={loading || rvtoolsFile.length === 0 || databaseFile.length === 0}
+                        iconName="search"
+                      >
+                        Run Preliminary Analysis
+                      </Button>
+                    </Box>
+                  </SpaceBetween>
+                </SpaceBetween>
+              )
+            },
+            {
+              id: 'results',
+              label: 'Results',
+              disabled: !results,
+              content: results ? (
+                <SpaceBetween size="l">{/* Results content will go here */}</SpaceBetween>
+              ) : (
+                <Box textAlign="center" padding="l">
+                  <Box variant="p" color="text-body-secondary">
+                    Run analysis to see results
+                  </Box>
+                </Box>
+              )
+            },
+            {
+              id: 'decision-guidance',
+              label: 'Decision Guidance',
+              content: (
+                <SpaceBetween size="l">{/* Decision guidance content will go here */}</SpaceBetween>
+              )
+            }
+          ]}
+        />
+      </Container>
+    </SpaceBetween>
+  );
+}
+
+
+export default OLAAnalysis;

@@ -79,7 +79,7 @@ agents/
 - Accurate cluster sizing based on real workloads
 - **Implementation**: `agents/core/aws_business_case.py` (new function: `get_it_inventory_servers_for_eks()`)
 
-### EKS Container Migration (✅ Production Ready)
+### EKS Container Migration
 - **Python-based recommendation engine** - Deterministic 4-tier decision tree
 - OS-aware VM categorization, consolidation ratios (2-3.5x Linux, 1.1-2x Windows)
 - 35+ worker node types (Intel, AMD, Graviton), Spot instance strategy
@@ -267,7 +267,7 @@ To ensure consistent VM/server counts and avoid LLM caching issues:
 - Creates: `output/vm_to_ec2_mapping.xlsx`
 - Contains VM-to-EC2 instance mapping with costs
 
-#### EKS Analysis (✅ Production Ready):
+#### EKS Analysis:
 
 **`agents/pricing/eks_pricing.py`**
 - Function: `categorize_vms_for_eks()` - OS-aware VM categorization
@@ -915,4 +915,4 @@ Output: Backup costs integrated into all reports
 
 **Last Updated**: January 2, 2026  
 **Version**: 1.0  
-**Status**: Production Ready
+**Status**: Active

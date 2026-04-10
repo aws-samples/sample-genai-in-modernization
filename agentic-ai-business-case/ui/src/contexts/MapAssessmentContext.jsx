@@ -38,6 +38,14 @@ export const MapAssessmentProvider = ({ children }) => {
     diagram: ''
   });
 
+  const [serviceAnalysisData, setServiceAnalysisData] = useState({
+    analysis: ''
+  });
+
+  const [olaData, setOLAData] = useState({
+    results: null
+  });
+
   // Reset functions for each use case
   const resetModernization = () => {
     setModernizationData({
@@ -67,6 +75,16 @@ export const MapAssessmentProvider = ({ children }) => {
     setArchitectureDiagramData({ diagram: '' });
   };
 
+  const resetServiceAnalysis = () => {
+    setServiceAnalysisData({ analysis: '' });
+  };
+
+  const resetOLA = () => {
+    setOLAData({
+      results: null
+    });
+  };
+
   const resetAll = () => {
     resetModernization();
     resetMigrationStrategy();
@@ -74,6 +92,8 @@ export const MapAssessmentProvider = ({ children }) => {
     resetLearningPathway();
     resetBusinessCaseReview();
     resetArchitectureDiagram();
+    resetServiceAnalysis();
+    resetOLA();
   };
 
   // Get context data by type for chat assistant
@@ -91,6 +111,10 @@ export const MapAssessmentProvider = ({ children }) => {
         return businessCaseReviewData;
       case 'architecture':
         return architectureDiagramData;
+      case 'service-analysis':
+        return serviceAnalysisData;
+      case 'ola-analysis':
+        return olaData;
       default:
         return null;
     }
@@ -126,6 +150,16 @@ export const MapAssessmentProvider = ({ children }) => {
     architectureDiagramData,
     setArchitectureDiagramData,
     resetArchitectureDiagram,
+    
+    // Service Analysis
+    serviceAnalysisData,
+    setServiceAnalysisData,
+    resetServiceAnalysis,
+    
+    // OLA Analysis
+    olaData,
+    setOLAData,
+    resetOLA,
     
     // Utilities
     resetAll,

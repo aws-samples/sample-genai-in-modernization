@@ -167,7 +167,7 @@ source .venv/bin/activate
 
 # Install CDK dependencies
 echo_info "Installing CDK dependencies..."
-pip install -q -r requirements.txt
+python3 -m pip install -q -r requirements.txt
 
 # Bootstrap CDK (if needed)
 echo_info "Checking CDK bootstrap..."

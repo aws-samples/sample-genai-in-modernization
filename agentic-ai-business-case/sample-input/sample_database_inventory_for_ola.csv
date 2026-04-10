@@ -1,0 +1,8 @@
+DatabaseName,Type,Edition,Version,HostServer,vCPU,Memory,Storage,Environment,LicenseModel,LicenseCount,Features
+ProdDB01,SQL Server,Enterprise,2019,PROD-DB01,16,64,500,Production,Per Core,8,Always On|TDE|Compression
+DevDB01,SQL Server,Standard,2019,DEV-APP01,4,16,100,Development,Per Core,2,TDE
+TestDB01,SQL Server,Standard,2019,TEST-DB01,4,16,100,Test,Per Core,2,None
+WebDB01,SQL Server,Web,2019,PROD-WEB01,4,16,50,Production,Per Core,2,None
+OracleERP,Oracle,Enterprise,19c,PROD-LINUX01,8,32,1000,Production,Processor,2,RAC|Data Guard
+OracleHR,Oracle,SE Two,19c,PROD-LINUX02,4,16,200,Production,Processor,1,None
+MySQLApp,MySQL,Community,8.0,DEV-LINUX01,2,8,50,Development,Open Source,0,None

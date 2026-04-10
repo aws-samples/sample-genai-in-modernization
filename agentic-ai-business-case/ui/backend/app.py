@@ -26,10 +26,22 @@ if not IS_PRODUCTION:
 else:
     print("✓ Running in PRODUCTION mode - serving frontend from Flask")
 
+# Cognito authentication (only when COGNITO_USER_POOL_ID is set)
+from cognito_auth import is_cognito_enabled, register_auth_routes, get_user_from_session
+if is_cognito_enabled():
+    app.secret_key = os.environ.get('FLASK_SECRET_KEY', os.urandom(32).hex())
+    register_auth_routes(app)
+    print("✓ Cognito authentication enabled")
+
 # Register MAP Assessment routes
 from map_routes import map_bp
 app.register_blueprint(map_bp)
 print("✓ MAP Assessment routes registered")
+
+# Register OLA Analysis routes
+from ola_routes import ola_bp
+app.register_blueprint(ola_bp)
+print("✓ OLA Analysis routes registered")
 
 # Configuration
 UPLOAD_FOLDER = tempfile.mkdtemp()
@@ -101,8 +113,9 @@ def allowed_file(filename):
 
 def get_user_from_oidc():
     """
-    Extract user info from ALB OIDC headers.
+    Extract user info from ALB OIDC headers or Cognito session.
     ALB adds x-amzn-oidc-data header with JWT containing user info.
+    Cognito session is set by cognito_auth.py when using Cognito login.
     """
     import base64
     import json
@@ -116,6 +129,12 @@ def get_user_from_oidc():
             'given_name': 'Developer',
             'family_name': 'User'
         }
+    
+    # Check Cognito session first (from cognito_auth.py)
+    if is_cognito_enabled():
+        user = get_user_from_session()
+        if user:
+            return user
     
     # ALB adds x-amzn-oidc-data header with JWT
     oidc_data = request.headers.get('x-amzn-oidc-data')

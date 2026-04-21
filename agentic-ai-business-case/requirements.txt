@@ -29,7 +29,7 @@ importlib_metadata==8.7.0
 jmespath==1.0.1
 jsonschema==4.25.1
 jsonschema-specifications==2025.9.1
-lxml==6.0.2
+lxml==6.1.0
 markdown-it-py==4.0.0
 markdownify==1.2.2
 mcp==1.23.1

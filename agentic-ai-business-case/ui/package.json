@@ -6,7 +6,7 @@
   "dependencies": {
     "@cloudscape-design/components": "^3.0.0",
     "@cloudscape-design/global-styles": "^1.0.0",
-    "axios": "^1.9.0",
+    "axios": "^1.15.2",
     "html2pdf.js": "^0.14.0",
     "nth-check": "^2.0.1",
     "react": "^18.2.0",

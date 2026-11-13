@@ -1,5 +1,16 @@
 # MAP Agentic Accelerator
 
+> [!WARNING]
+> **Demo use only — not for production.**
+> This repository is a sample to show what generative AI can do in AWS migration and modernisation. It has not been hardened for production or real customer data.
+>
+> - Authentication, session handling and IAM permissions are simplified for demo purposes.
+> - The deployment templates create a **public** load balancer. If you deploy, restrict access to trusted IP ranges, set a strong random `FLASK_SECRET_KEY`, and tear the stack down when the demo is over.
+> - Use sample or synthetic data only. Do not upload confidential or personal data.
+> - Bedrock model IDs and dependencies may be out of date. Check the [Bedrock model lifecycle](https://docs.aws.amazon.com/bedrock/latest/userguide/model-lifecycle.html) before running.
+>
+> You are responsible for reviewing and securing any code you deploy into your own AWS account. See the [AWS Shared Responsibility Model](https://aws.amazon.com/compliance/shared-responsibility-model/).
+
 An AI-powered platform for AWS cloud migration — from initial assessment through business case generation and execution planning. Built with multi-agent orchestration on Amazon Bedrock.
 
 ## Components

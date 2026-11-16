@@ -4,13 +4,12 @@ import sys
 from collections.abc import AsyncIterator
 
 from strands import Agent
-from strands.models.bedrock import BedrockModel
 from strands.multiagent import GraphBuilder
 from strands.multiagent.base import Status
 
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
 
-from utils.config import DEFAULT_MAX_TOKENS, DEFAULT_MODEL_ID
+from utils.config import get_model
 
 from prompt_library.aws_cost.aws_cost_prompt import get_modernization_pathways_cost_prompt
 from prompt_library.partner_50k_milestone.partner_50k_milestone import get_milestone_prompt
@@ -51,13 +50,13 @@ async def stream_aws_cost(
     cost_agent = Agent(
         name="cost_calculator",
         system_prompt=cost_prompt,
-        model=BedrockModel(model_id=DEFAULT_MODEL_ID, max_tokens=DEFAULT_MAX_TOKENS),
+        model=get_model(),
         callback_handler=None,
     )
     milestone_agent = Agent(
         name="milestone_prediction",
         system_prompt=milestone_prompt,
-        model=BedrockModel(model_id=DEFAULT_MODEL_ID, max_tokens=DEFAULT_MAX_TOKENS),
+        model=get_model(),
         callback_handler=None,
     )
 

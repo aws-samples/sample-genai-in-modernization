@@ -4,11 +4,10 @@ import sys
 from collections.abc import AsyncIterator
 
 from strands import Agent
-from strands.models.bedrock import BedrockModel
 
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
 
-from utils.config import DEFAULT_MAX_TOKENS, DEFAULT_MODEL_ID
+from utils.config import get_model
 
 from prompt_library.resource_planning.resource_planning_prompt import get_resource_planning_prompt
 
@@ -32,7 +31,7 @@ async def stream_resource_planning(strategy_json: str) -> AsyncIterator[str]:
 
     agent = Agent(
         system_prompt=prompt,
-        model=BedrockModel(model_id=DEFAULT_MODEL_ID, max_tokens=DEFAULT_MAX_TOKENS),
+        model=get_model(),
         callback_handler=None,
     )
 

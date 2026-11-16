@@ -195,7 +195,7 @@ const ResultsStep = ({ businessCaseResult, setBusinessCaseResult, projectInfo, d
       
       if (data.success) {
         // Open presigned URL in new tab to trigger download
-        window.open(data.url, '_blank');
+        window.open(data.url, '_blank', 'noopener,noreferrer');
         setSaveMessage({ type: 'success', text: `Downloading ${fileName}...` });
         setTimeout(() => setSaveMessage(null), 3000);
       } else {

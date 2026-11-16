@@ -11,6 +11,7 @@ import Input from "@cloudscape-design/components/input";
 import StatusIndicator from "@cloudscape-design/components/status-indicator";
 import Table from "@cloudscape-design/components/table";
 import ExpandableSection from "@cloudscape-design/components/expandable-section";
+import Modal from "@cloudscape-design/components/modal";
 import { CodeView } from "@cloudscape-design/code-view";
 import mermaid from "mermaid";
 import { useSessionState } from "./App";
@@ -21,15 +22,16 @@ mermaid.initialize({ startOnLoad: false, theme: "default", securityLevel: "loose
 /* Draw.io diagram viewer — uses postMessage to load XML into iframe   */
 /* (avoids URL length limits that cause "too many length" errors)      */
 /* ------------------------------------------------------------------ */
-function DrawioDiagram({ xml }: { xml: string }) {
+function DrawioDiagram({ xml, editor = false }: { xml: string; editor?: boolean }) {
   const iframeRef = useRef<HTMLIFrameElement>(null);
   const xmlRef = useRef(xml);
   xmlRef.current = xml;
 
   useEffect(() => {
     const handler = (evt: MessageEvent) => {
-      /* Accept messages from the embed origin */
+      /* Accept messages from the embed origin and this iframe only */
       if (evt.origin !== "https://embed.diagrams.net") return;
+      if (evt.source !== iframeRef.current?.contentWindow) return;
       let msg: any;
       try {
         msg = typeof evt.data === "string" ? JSON.parse(evt.data) : evt.data;
@@ -70,9 +72,11 @@ function DrawioDiagram({ xml }: { xml: string }) {
   return (
     <iframe
       ref={iframeRef}
-      title="Landing Zone Architecture Diagram"
-      src="https://embed.diagrams.net/?embed=1&proto=json&spin=1&ui=min&noSaveBtn=1&noExitBtn=1&saveAndExit=0"
-      style={{ width: "100%", height: 600, border: "1px solid #e9ebed", borderRadius: 4 }}
+      title={editor ? "Landing Zone Architecture Editor" : "Landing Zone Architecture Diagram"}
+      src={editor
+        ? "https://embed.diagrams.net/?embed=1&proto=json&spin=1&libraries=1&noSaveBtn=1&noExitBtn=1&saveAndExit=0"
+        : "https://embed.diagrams.net/?embed=1&proto=json&spin=1&ui=min&noSaveBtn=1&noExitBtn=1&saveAndExit=0"}
+      style={{ width: "100%", height: editor ? "75vh" : 600, border: "1px solid #e9ebed", borderRadius: 4 }}
     />
   );
 }
@@ -354,6 +358,7 @@ export default function ExecutionPlanning({ assessment, strategyResult }: Execut
   // Landing Zone — Architecture Diagram sub-tab state
   const [diagResult, setDiagResult] = useSessionState<string>("ep-lz-diag", "");
   const [diagError, setDiagError] = useState("");
+  const [diagEditorOpen, setDiagEditorOpen] = useState(false);
 
   // Landing Zone sub-tab
   const [lzSubTab, setLzSubTab] = useState("lz-design");
@@ -711,29 +716,20 @@ export default function ExecutionPlanning({ assessment, strategyResult }: Execut
                               a.click();
                               URL.revokeObjectURL(url);
                             }}>Download .drawio</Button>
-                            <Button variant="normal" iconName="external" onClick={() => {
-                              /* Open draw.io editor and load XML via postMessage (avoids URL length limits) */
-                              const w = window.open("https://embed.diagrams.net/?embed=1&proto=json&spin=1&libraries=1&saveAndExit=0", "_blank");
-                              if (!w) return;
-                              const onInit = (evt: MessageEvent) => {
-                                if (evt.origin !== "https://embed.diagrams.net") return;
-                                try {
-                                  const msg = typeof evt.data === "string" ? JSON.parse(evt.data) : evt.data;
-                                  if (msg.event === "init") {
-                                    w.postMessage(JSON.stringify({ action: "load", xml: diagResult }), "https://embed.diagrams.net");
-                                    window.removeEventListener("message", onInit);
-                                  }
-                                } catch { /* ignore */ }
-                              };
-                              window.addEventListener("message", onInit);
-                              /* Clean up listener after 30s in case window was blocked */
-                              setTimeout(() => window.removeEventListener("message", onInit), 30000);
-                            }}>Open in draw.io</Button>
+                            <Button variant="normal" iconName="expand" onClick={() => setDiagEditorOpen(true)}>Open in draw.io</Button>
                           </SpaceBetween>
                         }>Architecture Diagram</Header>
                       }>
                         <DrawioDiagram xml={diagResult} />
                       </Container>
+                      <Modal
+                        visible={diagEditorOpen}
+                        onDismiss={() => setDiagEditorOpen(false)}
+                        size="max"
+                        header="Architecture Diagram Editor"
+                      >
+                        {diagEditorOpen && <DrawioDiagram xml={diagResult} editor />}
+                      </Modal>
                       <ExpandableSection headerText="Raw XML Output (Debug)" variant="container">
                         <Box>
                           <SpaceBetween size="xs">

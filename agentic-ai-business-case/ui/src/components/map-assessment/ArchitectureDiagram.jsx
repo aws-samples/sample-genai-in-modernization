@@ -173,7 +173,7 @@ function ArchitectureDiagram() {
 
   const openInDrawio = () => {
     const encodedXml = encodeURIComponent(diagramXml);
-    window.open(`https://app.diagrams.net/?lightbox=1#R${encodedXml}`, '_blank');
+    window.open(`https://app.diagrams.net/?lightbox=1#R${encodedXml}`, '_blank', 'noopener,noreferrer');
   };
 
   return (

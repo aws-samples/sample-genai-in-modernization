@@ -40,7 +40,7 @@ export default function ArchitectureDiagram() {
 
   const handleOpenDrawio = () => {
     const encoded = encodeURIComponent(xmlResult);
-    window.open(`https://app.diagrams.net/#R${encoded}`, "_blank");
+    window.open(`https://app.diagrams.net/#R${encoded}`, "_blank", "noopener,noreferrer");
   };
 
   return (

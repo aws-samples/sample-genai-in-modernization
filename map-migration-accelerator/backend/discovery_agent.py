@@ -13,11 +13,12 @@ import os
 import sys
 
 from strands import Agent, tool
+from strands.models.bedrock import BedrockModel
 
 # Allow imports from project root for prompt_library
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
 
-from utils.config import DEFAULT_MODEL_ID
+from utils.config import DEFAULT_MAX_TOKENS, DEFAULT_MODEL_ID
 
 from prompt_library.discovery.discovery_prompt import (
     get_app_analysis_prompt,
@@ -81,7 +82,7 @@ def _run_analysis(system_prompt: str, data_json: str) -> str:
     parsed data, and return the agent's text response."""
     sub_agent = Agent(
         system_prompt=system_prompt,
-        model=DEFAULT_MODEL_ID,
+        model=BedrockModel(model_id=DEFAULT_MODEL_ID, max_tokens=DEFAULT_MAX_TOKENS),
         callback_handler=None,
     )
     result = sub_agent(f"Analyze this data and return the JSON result:\n\n{data_json}")
@@ -104,7 +105,7 @@ def create_app_analysis_agent(app_csv_content: str) -> Agent:
     return Agent(
         name="app_analyst",
         system_prompt=system_prompt,
-        model=DEFAULT_MODEL_ID,
+        model=BedrockModel(model_id=DEFAULT_MODEL_ID, max_tokens=DEFAULT_MAX_TOKENS),
         callback_handler=None,
     )
 
@@ -120,7 +121,7 @@ def create_infra_analysis_agent(infra_csv_content: str) -> Agent:
     return Agent(
         name="infra_analyst",
         system_prompt=system_prompt,
-        model=DEFAULT_MODEL_ID,
+        model=BedrockModel(model_id=DEFAULT_MODEL_ID, max_tokens=DEFAULT_MAX_TOKENS),
         callback_handler=None,
     )
 
@@ -134,7 +135,7 @@ def create_summary_agent(dependency_json: str) -> tuple[Agent, str]:
     agent = Agent(
         name="summary_analyst",
         system_prompt=get_summary_prompt(),
-        model=DEFAULT_MODEL_ID,
+        model=BedrockModel(model_id=DEFAULT_MODEL_ID, max_tokens=DEFAULT_MAX_TOKENS),
         callback_handler=None,
     )
     task = f"Analyze this dependency data and return the enriched JSON:\n\n{dependency_json}"

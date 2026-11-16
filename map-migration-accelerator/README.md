@@ -140,7 +140,7 @@ Upload CSVs → Discovery → Strategy → Cost → Landing Zone → Tasks → R
 ## Prerequisites
 
 - **AWS Account** with Amazon Bedrock access in `us-east-1`
-- **Claude Sonnet 4** model enabled in Amazon Bedrock (`us.anthropic.claude-sonnet-4-20250514-v1:0`)
+- **Claude Sonnet 5.5** model enabled in Amazon Bedrock (`us.anthropic.claude-sonnet-5-5`)
 - **Python** 3.8 or later
 - **Node.js** 18 or later (with npm)
 - **AWS CLI** configured with valid credentials
@@ -189,7 +189,7 @@ export AWS_DEFAULT_REGION=us-east-1
 
 Review `backend/utils/config.py` for model IDs, region, and parameters. Key defaults:
 
-- **Model:** Claude Sonnet 4 (`us.anthropic.claude-sonnet-4-20250514-v1:0`)
+- **Model:** Claude Sonnet 5.5 (`us.anthropic.claude-sonnet-5-5`, override via `BEDROCK_MODEL_ID` environment variable)
 - **Region:** `us-east-1` (override via `AWS_REGION` environment variable)
 - **Max Tokens:** 65,536
 

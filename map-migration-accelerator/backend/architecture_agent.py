@@ -10,7 +10,7 @@ from strands import Agent
 # Allow imports from project root for prompt_library
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
 
-from utils.config import DEFAULT_MODEL_ID
+from utils.config import get_model
 
 from prompt_library.architecture_diagram.architecture_diagram_prompt import (
     get_architecture_diagram_prompt,
@@ -26,7 +26,7 @@ async def stream_diagram(description: str) -> AsyncIterator[str]:
 
     agent = Agent(
         system_prompt=prompt,
-        model=DEFAULT_MODEL_ID,
+        model=get_model(),
         callback_handler=None,
     )
 

@@ -4,13 +4,12 @@ import sys
 from collections.abc import AsyncIterator
 
 from strands import Agent
-from strands.models.bedrock import BedrockModel
 from strands.multiagent import GraphBuilder
 from strands.multiagent.base import Status
 
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
 
-from utils.config import DEFAULT_MAX_TOKENS, DEFAULT_MODEL_ID
+from utils.config import get_model
 
 from prompt_library.landing_zone.landing_zone_diagram_prompt import (
     get_landing_zone_diagram_prompt,
@@ -145,19 +144,19 @@ async def stream_landing_zone(
     design_agent = Agent(
         name="design_agent",
         system_prompt=design_prompt,
-        model=BedrockModel(model_id=DEFAULT_MODEL_ID, max_tokens=DEFAULT_MAX_TOKENS),
+        model=get_model(),
         callback_handler=None,
     )
     diagram_agent = Agent(
         name="diagram_agent",
         system_prompt=diagram_prompt,
-        model=BedrockModel(model_id=DEFAULT_MODEL_ID, max_tokens=DEFAULT_MAX_TOKENS),
+        model=get_model(),
         callback_handler=None,
     )
     iac_agent = Agent(
         name="iac_agent",
         system_prompt=IAC_SYSTEM_PROMPT,
-        model=BedrockModel(model_id=DEFAULT_MODEL_ID, max_tokens=DEFAULT_MAX_TOKENS),
+        model=get_model(),
         callback_handler=None,
     )
 

@@ -11,11 +11,11 @@ AWS_PROFILE = os.getenv("AWS_PROFILE", None)
 # ---------------------------------------------------------------------------
 # Model IDs
 # ---------------------------------------------------------------------------
-CLAUDE_SONNET_4_MODEL_ID = "us.anthropic.claude-sonnet-4-20250514-v1:0"
-CLAUDE_3_7_SONNET_MODEL_ID = "us.anthropic.claude-3-7-sonnet-20250219-v1:0"
-CLAUDE_3_5_SONNET_MODEL_ID = "anthropic.claude-3-5-sonnet-20240620-v1:0"
+CLAUDE_SONNET_5_5_MODEL_ID = "us.anthropic.claude-sonnet-5-5"
+CLAUDE_SONNET_4_6_MODEL_ID = "us.anthropic.claude-sonnet-4-6"
 
-DEFAULT_MODEL_ID = CLAUDE_SONNET_4_MODEL_ID
+# Override with the BEDROCK_MODEL_ID environment variable if needed
+DEFAULT_MODEL_ID = os.getenv("BEDROCK_MODEL_ID", CLAUDE_SONNET_5_5_MODEL_ID)
 
 # ---------------------------------------------------------------------------
 # Model Parameters

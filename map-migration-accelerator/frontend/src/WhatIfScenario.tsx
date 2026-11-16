@@ -43,15 +43,18 @@ interface ContextChip {
   truncateAt: number;
 }
 
+/* Max characters sent per output as chat context */
+const CONTEXT_CHAR_LIMIT = 100000;
+
 const CONTEXT_CHIPS: ContextChip[] = [
-  { label: "Assessment", sessionKey: "ma-assessment", truncateAt: 3000 },
-  { label: "Strategy", sessionKey: "ma-strategy", truncateAt: 3000 },
-  { label: "Cost Estimation", sessionKey: "ac-cost-result", truncateAt: 3000 },
-  { label: "MAP Milestone", sessionKey: "ac-milestone-result", truncateAt: 3000 },
-  { label: "Landing Zone", sessionKey: "ep-lz-design", truncateAt: 3000 },
-  { label: "Task Breakdown", sessionKey: "ep-tb-result", truncateAt: 3000 },
-  { label: "Wave Runbook", sessionKey: "ep-wr-result", truncateAt: 3000 },
-  { label: "Resource Plan", sessionKey: "ep-rp-result", truncateAt: 3000 },
+  { label: "Assessment", sessionKey: "ma-assessment", truncateAt: CONTEXT_CHAR_LIMIT },
+  { label: "Strategy", sessionKey: "ma-strategy", truncateAt: CONTEXT_CHAR_LIMIT },
+  { label: "Cost Estimation", sessionKey: "ac-cost-result", truncateAt: CONTEXT_CHAR_LIMIT },
+  { label: "MAP Milestone", sessionKey: "ac-milestone-result", truncateAt: CONTEXT_CHAR_LIMIT },
+  { label: "Landing Zone", sessionKey: "ep-lz-design", truncateAt: CONTEXT_CHAR_LIMIT },
+  { label: "Task Breakdown", sessionKey: "ep-tb-result", truncateAt: CONTEXT_CHAR_LIMIT },
+  { label: "Wave Runbook", sessionKey: "ep-wr-result", truncateAt: CONTEXT_CHAR_LIMIT },
+  { label: "Resource Plan", sessionKey: "ep-rp-result", truncateAt: CONTEXT_CHAR_LIMIT },
 ];
 
 function getSessionData(key: string): string | null {
@@ -204,6 +207,9 @@ export default function WhatIfScenario() {
 
   const availableChips = CONTEXT_CHIPS.filter((c) => !!getSessionData(c.sessionKey));
   const enabledCount = availableChips.filter((c) => enabledChips[c.sessionKey]).length;
+  const cutLabels = availableChips
+    .filter((c) => enabledChips[c.sessionKey] && (getSessionData(c.sessionKey) || "").length > c.truncateAt)
+    .map((c) => c.label);
 
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: "smooth" });
@@ -340,6 +346,12 @@ export default function WhatIfScenario() {
                   </Toggle>
                 ))}
               </div>
+
+              {cutLabels.length > 0 && (
+                <Alert type="warning">
+                  {`Only the first ${CONTEXT_CHAR_LIMIT.toLocaleString()} characters of these outputs are shared with the chat: ${cutLabels.join(", ")}.`}
+                </Alert>
+              )}
 
               {/* Preview of enabled context */}
               {enabledCount > 0 && (

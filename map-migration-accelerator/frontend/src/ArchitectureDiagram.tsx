@@ -9,7 +9,9 @@ import Button from "@cloudscape-design/components/button";
 import SpaceBetween from "@cloudscape-design/components/space-between";
 import ExpandableSection from "@cloudscape-design/components/expandable-section";
 import Box from "@cloudscape-design/components/box";
+import Modal from "@cloudscape-design/components/modal";
 import AgentStream from "./AgentStream";
+import DrawioDiagram from "./DrawioDiagram";
 
 export default function ArchitectureDiagram() {
   const [activeTab, setActiveTab] = useState("input");
@@ -17,6 +19,7 @@ export default function ArchitectureDiagram() {
   const [error, setError] = useState("");
   const [streaming, setStreaming] = useState(false);
   const [xmlResult, setXmlResult] = useState("");
+  const [editorOpen, setEditorOpen] = useState(false);
 
   const handleGenerate = () => {
     if (!description.trim()) {
@@ -36,11 +39,6 @@ export default function ArchitectureDiagram() {
     a.download = `aws_architecture_${Date.now()}.drawio`;
     a.click();
     URL.revokeObjectURL(url);
-  };
-
-  const handleOpenDrawio = () => {
-    const encoded = encodeURIComponent(xmlResult);
-    window.open(`https://app.diagrams.net/#R${encoded}`, "_blank", "noopener,noreferrer");
   };
 
   return (
@@ -124,8 +122,8 @@ export default function ArchitectureDiagram() {
               content: xmlResult ? (
                 <SpaceBetween size="m">
                   <Alert type="success">
-                    Diagram generated successfully. Download the .drawio file and
-                    open it in draw.io to view and edit.
+                    Diagram generated successfully. Open it in draw.io to edit, or
+                    download the .drawio file.
                   </Alert>
 
                   <SpaceBetween direction="horizontal" size="s">
@@ -136,10 +134,21 @@ export default function ArchitectureDiagram() {
                     >
                       Download .drawio
                     </Button>
-                    <Button iconName="external" onClick={handleOpenDrawio}>
+                    <Button iconName="expand" onClick={() => setEditorOpen(true)}>
                       Open in draw.io
                     </Button>
                   </SpaceBetween>
+
+                  <DrawioDiagram xml={xmlResult} />
+
+                  <Modal
+                    visible={editorOpen}
+                    onDismiss={() => setEditorOpen(false)}
+                    size="max"
+                    header="Architecture Diagram Editor"
+                  >
+                    {editorOpen && <DrawioDiagram xml={xmlResult} editor />}
+                  </Modal>
 
                   <ExpandableSection headerText="View XML source">
                     <Box variant="code">{xmlResult}</Box>

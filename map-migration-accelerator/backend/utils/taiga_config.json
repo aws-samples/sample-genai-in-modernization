@@ -1,8 +1,6 @@
 {
   "taiga": {
     "base_url": "https://api.taiga.io/api/v1",
-    "username": "ps_2026",
-    "password": "PragThinking@77",
     "project_slug": "ps_2026-anycompany-aws-cloud-migration"
   },
   "settings": {

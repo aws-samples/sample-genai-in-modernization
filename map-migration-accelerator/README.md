@@ -134,7 +134,7 @@ Upload CSVs → Discovery → Strategy → Cost → Landing Zone → Tasks → R
 | File | Purpose |
 | ---- | ------- |
 | `config.py` | Central configuration — AWS region (default `us-east-1`), model IDs (Claude Sonnet 4 default, 3.7 and 3.5 available), max tokens (65,536), temperature (0.7), CORS origins |
-| `taiga_config.json` | Taiga API URL, credentials, and project slug for project management integration |
+| `taiga_config.json` | Taiga API URL and project slug for project management integration (credentials come from `TAIGA_USERNAME` / `TAIGA_PASSWORD` environment variables) |
 | `resource_profile_template.csv` | Resource roles, experience levels, and daily rates used by the Resource Planning agent |
 
 ## Prerequisites
@@ -194,15 +194,16 @@ Review `backend/utils/config.py` for model IDs, region, and parameters. Key defa
 - **Max Tokens:** 65,536
 
 ### 6. Configure Taiga (Optional)
-
-If you plan to use the "Push to Taiga" feature, update `backend/utils/taiga_config.json` with your Taiga credentials:
-
+If you plan to use the "Push to Taiga" feature, set your Taiga credentials as environment variables in the shell that runs the backend:
+```bash
+export TAIGA_USERNAME="<your-taiga-username>"
+export TAIGA_PASSWORD="<your-taiga-password>"
+```
+Then set your project slug in `backend/utils/taiga_config.json`. This file holds only non-secret settings:
 ```json
 {
   "taiga": {
     "base_url": "https://api.taiga.io/api/v1",
-    "username": "<your-taiga-username>",
-    "password": "<your-taiga-password>",
     "project_slug": "<your-project-slug>"
   },
   "settings": {
@@ -212,23 +213,19 @@ If you plan to use the "Push to Taiga" feature, update `backend/utils/taiga_conf
   }
 }
 ```
-
 **Taiga project setup checklist:**
-
 1. Create a new project at [tree.taiga.io](https://tree.taiga.io/) using the **Kanban** template
 2. Go to **Settings → Modules** and enable **Epics** and **Backlog**
 3. Copy your project slug from the URL (e.g., `my-org-aws-migration`)
-4. Update the config file with your username, password, and project slug
-
-> ⚠️ **Security:** For production use, migrate Taiga credentials to AWS Secrets Manager or environment variables. Do not commit credentials to version control.
-
+4. Export `TAIGA_USERNAME` and `TAIGA_PASSWORD`, and set your project slug
+> ⚠ **Security:** Never put credentials in `taiga_config.json` or any other file in the repository. For production use, store them in AWS Secrets Manager.
 For more details, refer to the [Taiga API documentation](https://docs.taiga.io/api.html).
 
 ### 7. Run the Backend
 
 ```bash
 cd backend
-uvicorn app:app --host 0.0.0.0 --port 8000
+uvicorn app:app --host 127.0.0.1 --port 8000
 ```
 
 ### 8. Run the Frontend
@@ -262,7 +259,7 @@ The application will be available at `http://localhost:3000`.
 >
 > ⚠️ **Session Storage:** All data is stored in browser `sessionStorage`. Data is lost when the browser tab is closed. No server-side persistence is implemented.
 >
-> ⚠️ **Taiga Credentials:** Taiga API credentials are stored in `backend/utils/taiga_config.json`. For production use, migrate to AWS Secrets Manager or environment variables.
+> ⚠️ **Taiga Credentials:** the backend reads them from the `TAIGA_USERNAME` and `TAIGA_PASSWORD` environment variables. Never commit credentials to the repository. For production use, store them in AWS Secrets Manager.
 
 ## Best Practices
 

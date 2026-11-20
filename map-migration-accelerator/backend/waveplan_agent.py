@@ -17,8 +17,8 @@ with open(CONFIG_PATH) as f:
     _cfg = json.load(f)
 
 BASE_URL = _cfg["taiga"]["base_url"]
-USERNAME = _cfg["taiga"]["username"]
-PASSWORD = _cfg["taiga"]["password"]
+USERNAME = os.environ.get("TAIGA_USERNAME", "")
+PASSWORD = os.environ.get("TAIGA_PASSWORD", "")
 PROJECT_SLUG = _cfg["taiga"]["project_slug"]
 TIMEOUT = _cfg["settings"]["timeout"]
 VERIFY_SSL = _cfg["settings"]["verify_ssl"]

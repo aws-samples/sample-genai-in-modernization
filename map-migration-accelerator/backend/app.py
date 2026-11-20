@@ -2,6 +2,7 @@
 
 import json
 import os
+import re
 from datetime import datetime
 
 import logging
@@ -30,6 +31,20 @@ app.add_middleware(
     allow_methods=["POST"],
     allow_headers=["*"],
 )
+
+
+SAFE_CSV_NAME = re.compile(r"^[A-Za-z0-9][A-Za-z0-9 ._()-]{0,99}\.csv$", re.IGNORECASE)
+
+
+def _safe_upload_path(upload_dir: str, filename: str) -> str | None:
+    """Return a path inside upload_dir for a client-supplied CSV name, or None if unsafe."""
+    name = os.path.basename(filename.replace("\\", "/"))
+    if not SAFE_CSV_NAME.match(name):
+        return None
+    path = os.path.join(upload_dir, name)
+    if os.path.dirname(os.path.realpath(path)) != os.path.realpath(upload_dir):
+        return None
+    return path
 
 
 class GenerateRequest(BaseModel):
@@ -126,18 +141,25 @@ async def migration_upload(
         now = datetime.now()
         folder_name = now.strftime("%y-%m-%d-%S")
         upload_dir = os.path.join("uploads", folder_name)
+
+        # Reject unsafe client file names before anything is written to disk
+        app_csv_path = _safe_upload_path(upload_dir, app_file.filename)
+        if not app_csv_path:
+            return JSONResponse(status_code=400, content={"error": "Invalid app_file name"})
+        infra_csv_path = None
+        if infra_file and infra_file.filename:
+            infra_csv_path = _safe_upload_path(upload_dir, infra_file.filename)
+            if not infra_csv_path:
+                return JSONResponse(status_code=400, content={"error": "Invalid infra_file name"})
         os.makedirs(upload_dir, exist_ok=True)
 
         # Save app_file
-        app_csv_path = os.path.join(upload_dir, app_file.filename)
         app_content = await app_file.read()
         with open(app_csv_path, "wb") as f:
             f.write(app_content)
 
         # Save infra_file if provided
-        infra_csv_path = None
-        if infra_file and infra_file.filename:
-            infra_csv_path = os.path.join(upload_dir, infra_file.filename)
+        if infra_csv_path:
             infra_content = await infra_file.read()
             with open(infra_csv_path, "wb") as f:
                 f.write(infra_content)

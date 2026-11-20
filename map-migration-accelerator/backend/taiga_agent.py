@@ -23,10 +23,17 @@ def _sse(event: str, data: str) -> str:
 
 
 def _load_config() -> dict:
-    """Load Taiga config from backend/utils/taiga_config.json."""
+    """Load Taiga settings from backend/utils/taiga_config.json.
+
+    Credentials are read from the TAIGA_USERNAME and TAIGA_PASSWORD
+    environment variables so they are never stored in the repository.
+    """
     config_path = os.path.join(os.path.dirname(__file__), "utils", "taiga_config.json")
     with open(config_path) as f:
-        return json.load(f)
+        cfg = json.load(f)
+    cfg["taiga"]["username"] = os.environ.get("TAIGA_USERNAME", "")
+    cfg["taiga"]["password"] = os.environ.get("TAIGA_PASSWORD", "")
+    return cfg
 
 
 def _api(method: str, path: str, token: str, **kwargs) -> dict | None:
@@ -54,6 +61,8 @@ def authenticate_taiga() -> dict:
     """Authenticate with Taiga API and return auth token."""
     cfg = _load_config()
     taiga = cfg["taiga"]
+    if not taiga["username"] or not taiga["password"]:
+        raise ValueError("Set TAIGA_USERNAME and TAIGA_PASSWORD environment variables")
     resp = requests.post(
         f"{taiga['base_url']}/auth",
         json={"type": "normal", "username": taiga["username"], "password": taiga["password"]},

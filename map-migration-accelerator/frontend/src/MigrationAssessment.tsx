@@ -19,7 +19,7 @@ import mermaid from "mermaid";
 import "./styles.css";
 
 // Initialize mermaid with pie chart support
-mermaid.initialize({ startOnLoad: false, theme: "default", securityLevel: "loose" });
+mermaid.initialize({ startOnLoad: false, theme: "default", securityLevel: "strict" });
 
 interface StreamEvent {
   type: string;
@@ -71,6 +71,8 @@ function MermaidDiagram({ chart }: { chart: string }) {
     if (!containerRef.current) return;
     const id = `mermaid-${++mermaidCounter}`;
     mermaid.render(id, chart.trim()).then(({ svg }) => {
+      // SVG comes from mermaid.render with securityLevel "strict", which sanitises it with DOMPurify.
+      // nosemgrep: javascript.browser.security.insecure-innerhtml, javascript.browser.security.insecure-document-method
       if (containerRef.current) containerRef.current.innerHTML = svg;
     }).catch(() => {
       if (containerRef.current) containerRef.current.textContent = chart;

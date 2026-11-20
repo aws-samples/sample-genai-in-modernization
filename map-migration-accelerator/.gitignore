@@ -1,0 +1,6 @@
+# Local security scan outputs (contain local paths)
+security-scan/
+# Frontend build output
+frontend/dist/
+# Uploaded user data
+backend/uploads/

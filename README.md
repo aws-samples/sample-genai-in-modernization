@@ -61,7 +61,7 @@ cd map-migration-accelerator
 pip install -r backend/requirements.txt
 cd frontend && npm install && cd ..
 aws configure
-uvicorn backend.app:app --host 0.0.0.0 --port 8000  # backend
+uvicorn backend.app:app --host 127.0.0.1 --port 8000  # backend
 cd frontend && npm run dev                            # frontend (separate terminal)
 ```
 

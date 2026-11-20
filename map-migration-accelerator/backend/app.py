@@ -1,5 +1,8 @@
 """FastAPI backend - routes only."""
 
+import csv
+import io
+import itertools
 import json
 import os
 import re
@@ -33,6 +36,7 @@ app.add_middleware(
 )
 
 
+MAX_UPLOAD_BYTES = 5 * 1024 * 1024
 SAFE_CSV_NAME = re.compile(r"^[A-Za-z0-9][A-Za-z0-9 ._()-]{0,99}\.csv$", re.IGNORECASE)
 
 
@@ -45,6 +49,27 @@ def _safe_upload_path(upload_dir: str, filename: str) -> str | None:
     if os.path.dirname(os.path.realpath(path)) != os.path.realpath(upload_dir):
         return None
     return path
+
+
+def _csv_content_error(content: bytes) -> str | None:
+    """Return a reason the upload is not an acceptable CSV, or None if it is."""
+    if not content:
+        return "is empty"
+    if len(content) > MAX_UPLOAD_BYTES:
+        return f"exceeds the {MAX_UPLOAD_BYTES // (1024 * 1024)} MB limit"
+    if b"\x00" in content:
+        return "is not a text CSV file"
+    try:
+        text = content.decode("utf-8-sig")
+    except UnicodeDecodeError:
+        return "must be UTF-8 encoded"
+    try:
+        rows = list(itertools.islice(csv.reader(io.StringIO(text)), 2))
+    except csv.Error:
+        return "is not a valid CSV file"
+    if len(rows) < 2 or len([c for c in rows[0] if c.strip()]) < 2:
+        return "must have a header row with at least 2 columns and at least 1 data row"
+    return None
 
 
 class GenerateRequest(BaseModel):
@@ -151,16 +176,22 @@ async def migration_upload(
             infra_csv_path = _safe_upload_path(upload_dir, infra_file.filename)
             if not infra_csv_path:
                 return JSONResponse(status_code=400, content={"error": "Invalid infra_file name"})
-        os.makedirs(upload_dir, exist_ok=True)
+        # Read and validate both files before anything is written to disk
+        app_content = await app_file.read(MAX_UPLOAD_BYTES + 1)
+        error = _csv_content_error(app_content)
+        if error:
+            return JSONResponse(status_code=400, content={"error": f"app_file {error}"})
+        infra_content = None
+        if infra_csv_path:
+            infra_content = await infra_file.read(MAX_UPLOAD_BYTES + 1)
+            error = _csv_content_error(infra_content)
+            if error:
+                return JSONResponse(status_code=400, content={"error": f"infra_file {error}"})
 
-        # Save app_file
-        app_content = await app_file.read()
+        os.makedirs(upload_dir, exist_ok=True)
         with open(app_csv_path, "wb") as f:
             f.write(app_content)
-
-        # Save infra_file if provided
         if infra_csv_path:
-            infra_content = await infra_file.read()
             with open(infra_csv_path, "wb") as f:
                 f.write(infra_content)
 
